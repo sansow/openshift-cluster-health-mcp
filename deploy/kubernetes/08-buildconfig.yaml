@@ -1,0 +1,33 @@
+apiVersion: build.openshift.io/v1
+kind: BuildConfig
+metadata:
+  name: cluster-health-mcp
+  namespace: openshift-cluster-health
+  labels:
+    app.kubernetes.io/name: openshift-cluster-health-mcp
+    app.kubernetes.io/component: build
+spec:
+  output:
+    to:
+      kind: ImageStreamTag
+      name: cluster-health-mcp:latest
+  source:
+    type: Binary
+    binary: {}
+  strategy:
+    type: Docker
+    dockerStrategy:
+      dockerfilePath: Dockerfile
+  triggers: []
+---
+apiVersion: image.openshift.io/v1
+kind: ImageStream
+metadata:
+  name: cluster-health-mcp
+  namespace: openshift-cluster-health
+  labels:
+    app.kubernetes.io/name: openshift-cluster-health-mcp
+    app.kubernetes.io/component: imagestream
+spec:
+  lookupPolicy:
+    local: true
