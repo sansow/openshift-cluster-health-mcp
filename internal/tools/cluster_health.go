@@ -5,18 +5,21 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/openshift-aiops/openshift-cluster-health-mcp/pkg/cache"
 	"github.com/openshift-aiops/openshift-cluster-health-mcp/pkg/clients"
 )
 
 // ClusterHealthTool provides cluster health information via MCP
 type ClusterHealthTool struct {
 	k8sClient *clients.K8sClient
+	cache     *cache.MemoryCache
 }
 
 // NewClusterHealthTool creates a new cluster health tool
-func NewClusterHealthTool(k8sClient *clients.K8sClient) *ClusterHealthTool {
+func NewClusterHealthTool(k8sClient *clients.K8sClient, memoryCache *cache.MemoryCache) *ClusterHealthTool {
 	return &ClusterHealthTool{
 		k8sClient: k8sClient,
+		cache:     memoryCache,
 	}
 }
 
@@ -70,10 +73,24 @@ func (t *ClusterHealthTool) Execute(ctx context.Context, args map[string]interfa
 		json.Unmarshal(argsJSON, &input)
 	}
 
-	// Get cluster health from K8s client
-	health, err := t.k8sClient.GetClusterHealth(ctx)
+	// Cache key based on detail level
+	cacheKey := "cluster-health"
+	if !input.IncludeDetails {
+		cacheKey = "cluster-health-summary"
+	}
+
+	// Try to get from cache using GetOrSet pattern
+	healthInterface, err := t.cache.GetOrSet(ctx, cacheKey, func() (interface{}, error) {
+		return t.k8sClient.GetClusterHealth(ctx)
+	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to get cluster health: %w", err)
+	}
+
+	// Type assertion
+	health, ok := healthInterface.(*clients.ClusterHealth)
+	if !ok {
+		return nil, fmt.Errorf("unexpected cache value type")
 	}
 
 	// Build output

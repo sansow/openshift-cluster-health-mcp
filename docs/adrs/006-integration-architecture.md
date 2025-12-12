@@ -453,7 +453,15 @@ func (t *RemediationTool) Execute(ctx context.Context, params map[string]interfa
 
 **Purpose**: ML-powered anomaly detection
 
-**Endpoint**: `http://{model}-predictor:8080/v1/models/{model}:predict`
+**Endpoint**: `http://{model}-predictor.{namespace}.svc.cluster.local/v2/models/{model}/infer`
+
+**Protocol**: KServe V2 Inference Protocol (KServe 0.11+)
+
+**Actual Deployment**:
+- Service: `anomaly-detector-predictor.self-healing-platform.svc.cluster.local`
+- Service: `predictive-analytics-predictor.self-healing-platform.svc.cluster.local`
+- Port: 80 (ClusterIP default)
+- Protocol: KServe V2 (recommended over deprecated V1)
 
 **Implementation**:
 ```go
@@ -466,27 +474,45 @@ type KServeClient struct {
     enabled    bool
 }
 
+type KServeConfig struct {
+    Namespace string
+    Timeout   time.Duration
+    Enabled   bool
+}
+
 func NewKServeClient(config KServeConfig) *KServeClient {
+    timeout := config.Timeout
+    if timeout == 0 {
+        timeout = 15 * time.Second
+    }
+
     return &KServeClient{
         namespace:  config.Namespace,
-        httpClient: &http.Client{Timeout: 15 * time.Second},
+        httpClient: &http.Client{Timeout: timeout},
         enabled:    config.Enabled,
     }
 }
 
-func (c *KServeClient) PredictAnomaly(
+func (c *KServeClient) IsEnabled() bool {
+    return c.enabled
+}
+
+func (c *KServeClient) DetectAnomalies(
     ctx context.Context,
-    req *PredictionRequest,
-) (*PredictionResponse, error) {
+    metrics []MetricData,
+) (*AnomalyDetectionResult, error) {
     if !c.enabled {
-        return nil, ErrServiceDisabled
+        return nil, fmt.Errorf("kserve not enabled")
     }
 
-    // Construct KServe predictor URL
-    url := fmt.Sprintf("http://predictive-analytics-predictor.%s.svc:8080/v1/models/predictive-analytics:predict",
+    // Construct KServe predictor URL (V2 protocol)
+    url := fmt.Sprintf("http://anomaly-detector-predictor.%s.svc.cluster.local/v2/models/anomaly-detector/infer",
         c.namespace)
 
-    body, _ := json.Marshal(req)
+    // Build V2 inference request
+    inferReq := buildInferenceRequest(metrics)
+    body, _ := json.Marshal(inferReq)
+
     httpReq, _ := http.NewRequestWithContext(ctx, "POST", url, bytes.NewBuffer(body))
     httpReq.Header.Set("Content-Type", "application/json")
 
@@ -496,12 +522,12 @@ func (c *KServeClient) PredictAnomaly(
     }
     defer resp.Body.Close()
 
-    var prediction PredictionResponse
-    if err := json.NewDecoder(resp.Body).Decode(&prediction); err != nil {
+    var result AnomalyDetectionResult
+    if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
         return nil, err
     }
 
-    return &prediction, nil
+    return &result, nil
 }
 ```
 
@@ -853,7 +879,8 @@ var (
 
 - [OpenShift Cluster Health MCP PRD](../../PRD.md)
 - [Coordination Engine API Documentation](https://github.com/[your-org]/openshift-aiops-platform/blob/main/src/coordination-engine/README.md)
-- [KServe V1 Protocol](https://kserve.github.io/website/modelserving/v1beta1/serving_runtime/)
+- [KServe V2 Inference Protocol](https://kserve.github.io/website/modelserving/data_plane/v2_protocol/)
+- [KServe V1 Protocol (deprecated)](https://kserve.github.io/website/modelserving/v1beta1/serving_runtime/)
 - [Prometheus HTTP API](https://prometheus.io/docs/prometheus/latest/querying/api/)
 
 ## Approval
