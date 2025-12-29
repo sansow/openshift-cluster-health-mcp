@@ -10,6 +10,9 @@ jobs:
   test:
     name: Test
     runs-on: ubuntu-latest
+    env:
+      OPENSHIFT_SERVER: ${{ secrets.OPENSHIFT_SERVER }}
+      OPENSHIFT_TOKEN: ${{ secrets.OPENSHIFT_TOKEN }}
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
@@ -24,7 +27,7 @@ jobs:
       run: go mod download
 
     - name: Set up OpenShift kubeconfig (Optional)
-      if: secrets.OPENSHIFT_SERVER && secrets.OPENSHIFT_TOKEN
+      if: env.OPENSHIFT_SERVER != '' && env.OPENSHIFT_TOKEN != ''
       run: |
         echo "Setting up OpenShift kubeconfig from secrets..."
         mkdir -p ~/.kube
@@ -34,7 +37,7 @@ jobs:
         clusters:
         - cluster:
             insecure-skip-tls-verify: true
-            server: ${{ secrets.OPENSHIFT_SERVER }}
+            server: ${{ env.OPENSHIFT_SERVER }}
           name: openshift-cluster
         contexts:
         - context:
@@ -46,14 +49,14 @@ jobs:
         users:
         - name: openshift-user
           user:
-            token: ${{ secrets.OPENSHIFT_TOKEN }}
+            token: ${{ env.OPENSHIFT_TOKEN }}
         EOF
         chmod 600 ~/.kube/config
         echo "KUBECONFIG=$HOME/.kube/config" >> $GITHUB_ENV
         echo "✓ OpenShift kubeconfig configured"
 
     - name: Verify OpenShift connectivity (Optional)
-      if: secrets.OPENSHIFT_SERVER && secrets.OPENSHIFT_TOKEN
+      if: env.OPENSHIFT_SERVER != '' && env.OPENSHIFT_TOKEN != ''
       run: |
         # Install kubectl
         echo "Installing kubectl..."
