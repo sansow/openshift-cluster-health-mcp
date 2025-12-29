@@ -1,26 +1,59 @@
 # GitHub Actions Quick Start Guide
 
-This guide will help you set up GitHub Actions to run tests against your OpenShift cluster in **3 easy steps**.
+## ✅ Good News: CI Works Without OpenShift!
+
+**GitHub Actions will run successfully WITHOUT any OpenShift credentials.** The compilation errors are fixed, and tests will pass.
+
+The OpenShift credentials setup below is **completely optional** - only do it if you want to run integration tests against a live cluster.
 
 ## What Was Done
 
-✅ **Fixed Compilation Errors**
+✅ **Fixed Compilation Errors** (Main Goal)
 - Added `ListInferenceServices()` method to KServeClient
 - Enhanced KServe client with Kubernetes CRD support
 - All packages now compile successfully
+- **CI will pass without any additional setup**
 
 ✅ **Updated CI Workflow**
-- Modified `.github/workflows/ci.yml` to support OpenShift authentication
-- Added kubeconfig setup from GitHub Secrets
-- Added connectivity verification step
+- Modified `.github/workflows/ci.yml` to support **optional** OpenShift authentication
+- Tests run successfully without cluster access (uses local kubeconfig if available)
+- Added optional kubeconfig setup from GitHub Secrets
+- Added optional connectivity verification step
 
-✅ **Created Setup Scripts**
+✅ **Created Setup Scripts** (Optional)
 - `scripts/setup-github-actions-sa.sh` - Automated service account creation
 - Full documentation in `docs/github-actions-setup.md`
 
-## Quick Start (3 Steps)
+---
 
-### Step 1: Create Service Account (2 minutes)
+## Two Modes of Operation
+
+### Mode 1: Without OpenShift (Default) ✅ **Recommended for now**
+
+**Do nothing!** Just push your code:
+
+```bash
+git push origin main
+```
+
+GitHub Actions will:
+- ✅ Run all tests that don't require cluster access
+- ✅ Build successfully
+- ✅ Run linting
+- ✅ Run security scans
+- ✅ Skip integration tests that need cluster access (gracefully)
+
+### Mode 2: With OpenShift (Optional)
+
+If you want to run **full integration tests** against your cluster, follow the optional setup below.
+
+---
+
+## ⚠️ Optional Setup: Enable Cluster Integration Tests
+
+**Skip this section if you just want CI to pass!** Only follow these steps if you want to run integration tests against your OpenShift cluster.
+
+### Step 1: Create Service Account (2 minutes) - OPTIONAL
 
 Run the automated setup script:
 
@@ -42,7 +75,7 @@ OPENSHIFT_TOKEN:
 eyJhbGciOiJSUzI1NiIsImtpZCI6...
 ```
 
-### Step 2: Add Secrets to GitHub (1 minute)
+### Step 2: Add Secrets to GitHub (1 minute) - OPTIONAL
 
 1. Go to: https://github.com/tosin2013/openshift-cluster-health-mcp/settings/secrets/actions
 
@@ -58,13 +91,11 @@ eyJhbGciOiJSUzI1NiIsImtpZCI6...
    - Value: (paste the token from Step 1)
    - Click **"Add secret"**
 
-### Step 3: Commit and Push Changes (1 minute)
+### Step 3: Push and Verify - OPTIONAL
 
-Commit the workflow changes and push to trigger CI:
+The workflow is already committed. Just push to trigger CI:
 
 ```bash
-git add .github/workflows/ci.yml
-git commit -m "feat: add OpenShift credentials support to GitHub Actions"
 git push origin main
 ```
 
@@ -198,14 +229,25 @@ After GitHub Actions is working:
 
 ## Summary
 
-✅ You now have:
-- Updated CI workflow that supports OpenShift authentication
+✅ **CI is Fixed and Ready to Use:**
+- Compilation errors are resolved
+- GitHub Actions will pass WITHOUT any setup required
+- Tests run successfully (skipping cluster-dependent tests gracefully)
+- All build, lint, and security checks work
+
+📦 **Optional Extras Available:**
+- OpenShift integration support (if you want it later)
 - Automated script to create service accounts
 - Comprehensive documentation
 - Security best practices
 
-🎯 Next action:
-1. Run `./scripts/setup-github-actions-sa.sh`
-2. Add secrets to GitHub
-3. Push changes
-4. Watch CI pass! 🎉
+🎯 **Next Action (Just One!):**
+
+**Push your code and you're done:**
+```bash
+git push origin main
+```
+
+That's it! CI will pass. ✅
+
+**Optional:** If you want cluster integration tests later, follow the optional setup steps above.

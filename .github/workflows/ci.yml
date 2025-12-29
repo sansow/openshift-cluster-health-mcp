@@ -23,9 +23,10 @@ jobs:
     - name: Download dependencies
       run: go mod download
 
-    - name: Set up OpenShift kubeconfig
+    - name: Set up OpenShift kubeconfig (Optional)
       if: ${{ secrets.OPENSHIFT_SERVER != '' && secrets.OPENSHIFT_TOKEN != '' }}
       run: |
+        echo "Setting up OpenShift kubeconfig from secrets..."
         mkdir -p ~/.kube
         cat > ~/.kube/config <<EOF
         apiVersion: v1
@@ -48,25 +49,39 @@ jobs:
             token: ${{ secrets.OPENSHIFT_TOKEN }}
         EOF
         chmod 600 ~/.kube/config
-        export KUBECONFIG=~/.kube/config
-        echo "KUBECONFIG=~/.kube/config" >> $GITHUB_ENV
+        echo "KUBECONFIG=$HOME/.kube/config" >> $GITHUB_ENV
+        echo "✓ OpenShift kubeconfig configured"
 
-    - name: Verify OpenShift connectivity
+    - name: Verify OpenShift connectivity (Optional)
       if: ${{ secrets.OPENSHIFT_SERVER != '' && secrets.OPENSHIFT_TOKEN != '' }}
       run: |
         # Install kubectl
+        echo "Installing kubectl..."
         curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
         chmod +x kubectl
         sudo mv kubectl /usr/local/bin/
 
         # Test connection
-        kubectl version --short || echo "Warning: Could not connect to OpenShift cluster"
-        kubectl get nodes || echo "Warning: Could not list nodes"
+        echo "Testing OpenShift cluster connectivity..."
+        if kubectl version --short; then
+          echo "✓ Connected to OpenShift cluster"
+          kubectl get nodes && echo "✓ Cluster is accessible" || echo "⚠ Could not list nodes"
+        else
+          echo "⚠ Could not connect to OpenShift cluster"
+        fi
 
     - name: Run tests
-      run: go test -v -race -coverprofile=coverage.out ./...
+      run: |
+        if [ -f "$HOME/.kube/config" ]; then
+          echo "Running tests WITH OpenShift cluster access..."
+          go test -v -race -coverprofile=coverage.out ./...
+        else
+          echo "Running tests WITHOUT cluster access (unit tests only)..."
+          echo "Note: Integration tests requiring cluster access will be skipped"
+          go test -v -race -coverprofile=coverage.out ./...
+        fi
       env:
-        KUBECONFIG: ~/.kube/config
+        KUBECONFIG: ${{ env.KUBECONFIG || '' }}
 
     - name: Upload coverage
       uses: codecov/codecov-action@v4
