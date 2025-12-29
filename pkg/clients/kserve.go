@@ -8,20 +8,29 @@ import (
 	"io"
 	"net/http"
 	"time"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/rest"
 )
 
 // KServeClient provides client for KServe InferenceService models
 type KServeClient struct {
-	namespace  string
-	httpClient *http.Client
-	enabled    bool
+	namespace     string
+	httpClient    *http.Client
+	dynamicClient dynamic.Interface
+	restConfig    *rest.Config
+	enabled       bool
 }
 
 // KServeConfig holds configuration for KServe client
 type KServeConfig struct {
-	Namespace string
-	Timeout   time.Duration
-	Enabled   bool
+	Namespace  string
+	Timeout    time.Duration
+	Enabled    bool
+	RestConfig *rest.Config // Kubernetes rest config for accessing CRDs
 }
 
 // NewKServeClient creates a new KServe client
@@ -31,13 +40,25 @@ func NewKServeClient(config KServeConfig) *KServeClient {
 		timeout = 15 * time.Second
 	}
 
-	return &KServeClient{
+	client := &KServeClient{
 		namespace: config.Namespace,
 		httpClient: &http.Client{
 			Timeout: timeout,
 		},
-		enabled: config.Enabled,
+		restConfig: config.RestConfig,
+		enabled:    config.Enabled,
 	}
+
+	// Initialize dynamic client if rest config is provided
+	if config.RestConfig != nil {
+		dynamicClient, err := dynamic.NewForConfig(config.RestConfig)
+		if err == nil {
+			client.dynamicClient = dynamicClient
+		}
+		// If error, client will still work for HTTP-based operations
+	}
+
+	return client
 }
 
 // IsEnabled returns whether KServe integration is enabled
@@ -551,4 +572,129 @@ func (c *KServeClient) Predict(ctx context.Context, modelName string, instances 
 	}
 
 	return &result, nil
+}
+
+// InferenceService represents a KServe InferenceService CRD
+type InferenceService struct {
+	Name   string
+	Spec   InferenceServiceSpec
+	Status InferenceServiceStatus
+}
+
+// InferenceServiceSpec represents the spec of an InferenceService
+type InferenceServiceSpec struct {
+	Predictor PredictorSpec
+}
+
+// PredictorSpec represents the predictor configuration
+type PredictorSpec struct {
+	Runtime string
+}
+
+// GetRuntime extracts the runtime from predictor spec
+func (p *PredictorSpec) GetRuntime() string {
+	if p.Runtime != "" {
+		return p.Runtime
+	}
+	return "unknown"
+}
+
+// InferenceServiceStatus represents the status of an InferenceService
+type InferenceServiceStatus struct {
+	IsReady bool
+	URL     string
+}
+
+// ListInferenceServices lists all InferenceService resources in the namespace
+func (c *KServeClient) ListInferenceServices(ctx context.Context) ([]InferenceService, error) {
+	if !c.enabled {
+		return nil, fmt.Errorf("kserve not enabled")
+	}
+
+	if c.dynamicClient == nil {
+		return nil, fmt.Errorf("kubernetes client not configured - unable to list InferenceServices")
+	}
+
+	// Define the GVR for InferenceService
+	gvr := schema.GroupVersionResource{
+		Group:    "serving.kserve.io",
+		Version:  "v1beta1",
+		Resource: "inferenceservices",
+	}
+
+	// List InferenceServices in the namespace
+	list, err := c.dynamicClient.Resource(gvr).Namespace(c.namespace).List(ctx, metav1.ListOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to list inferenceservices: %w", err)
+	}
+
+	// Convert unstructured list to InferenceService structs
+	services := make([]InferenceService, 0, len(list.Items))
+	for _, item := range list.Items {
+		svc := c.convertToInferenceService(&item)
+		services = append(services, svc)
+	}
+
+	return services, nil
+}
+
+// convertToInferenceService converts an unstructured object to InferenceService
+func (c *KServeClient) convertToInferenceService(obj *unstructured.Unstructured) InferenceService {
+	svc := InferenceService{
+		Name: obj.GetName(),
+	}
+
+	// Extract spec.predictor runtime
+	spec, found, err := unstructured.NestedMap(obj.Object, "spec", "predictor")
+	if found && err == nil {
+		runtime := extractRuntime(spec)
+		svc.Spec.Predictor.Runtime = runtime
+	}
+
+	// Extract status
+	statusMap, found, err := unstructured.NestedMap(obj.Object, "status")
+	if found && err == nil {
+		// Check if ready
+		conditions, found, err := unstructured.NestedSlice(statusMap, "conditions")
+		if found && err == nil {
+			for _, cond := range conditions {
+				if condMap, ok := cond.(map[string]interface{}); ok {
+					if condType, ok := condMap["type"].(string); ok && condType == "Ready" {
+						if status, ok := condMap["status"].(string); ok {
+							svc.Status.IsReady = status == "True"
+						}
+					}
+				}
+			}
+		}
+
+		// Extract URL
+		if url, found, err := unstructured.NestedString(statusMap, "url"); found && err == nil {
+			svc.Status.URL = url
+		}
+	}
+
+	return svc
+}
+
+// extractRuntime determines the runtime from predictor spec
+func extractRuntime(predictor map[string]interface{}) string {
+	// KServe supports multiple runtime types: sklearn, xgboost, pytorch, tensorflow, onnx, etc.
+	runtimeKeys := []string{"sklearn", "xgboost", "pytorch", "tensorflow", "onnx", "triton", "huggingface", "pmml", "lightgbm"}
+
+	for _, key := range runtimeKeys {
+		if _, found := predictor[key]; found {
+			return key
+		}
+	}
+
+	// Check for custom predictor
+	if _, found := predictor["model"]; found {
+		if runtime, ok := predictor["runtime"].(string); ok {
+			return runtime
+		}
+		return "custom"
+	}
+
+	return "unknown"
 }

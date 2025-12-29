@@ -306,6 +306,12 @@ func (c *K8sClient) Clientset() *kubernetes.Clientset {
 	return c.clientset
 }
 
+// GetConfig returns the Kubernetes rest config
+// This is useful for creating additional clients (e.g., dynamic clients)
+func (c *K8sClient) GetConfig() *rest.Config {
+	return c.config
+}
+
 // Close cleans up the client resources
 // Note: Kubernetes clientset doesn't require explicit cleanup,
 // but this method is provided for future extensibility

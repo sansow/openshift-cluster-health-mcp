@@ -23,8 +23,50 @@ jobs:
     - name: Download dependencies
       run: go mod download
 
+    - name: Set up OpenShift kubeconfig
+      if: ${{ secrets.OPENSHIFT_SERVER != '' && secrets.OPENSHIFT_TOKEN != '' }}
+      run: |
+        mkdir -p ~/.kube
+        cat > ~/.kube/config <<EOF
+        apiVersion: v1
+        kind: Config
+        clusters:
+        - cluster:
+            insecure-skip-tls-verify: true
+            server: ${{ secrets.OPENSHIFT_SERVER }}
+          name: openshift-cluster
+        contexts:
+        - context:
+            cluster: openshift-cluster
+            namespace: default
+            user: openshift-user
+          name: openshift-context
+        current-context: openshift-context
+        users:
+        - name: openshift-user
+          user:
+            token: ${{ secrets.OPENSHIFT_TOKEN }}
+        EOF
+        chmod 600 ~/.kube/config
+        export KUBECONFIG=~/.kube/config
+        echo "KUBECONFIG=~/.kube/config" >> $GITHUB_ENV
+
+    - name: Verify OpenShift connectivity
+      if: ${{ secrets.OPENSHIFT_SERVER != '' && secrets.OPENSHIFT_TOKEN != '' }}
+      run: |
+        # Install kubectl
+        curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+        chmod +x kubectl
+        sudo mv kubectl /usr/local/bin/
+
+        # Test connection
+        kubectl version --short || echo "Warning: Could not connect to OpenShift cluster"
+        kubectl get nodes || echo "Warning: Could not list nodes"
+
     - name: Run tests
       run: go test -v -race -coverprofile=coverage.out ./...
+      env:
+        KUBECONFIG: ~/.kube/config
 
     - name: Upload coverage
       uses: codecov/codecov-action@v4

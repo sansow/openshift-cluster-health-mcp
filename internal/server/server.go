@@ -66,9 +66,10 @@ func NewMCPServer(config *Config) (*MCPServer, error) {
 	var kserveClient *clients.KServeClient
 	if config.EnableKServe {
 		kserveClient = clients.NewKServeClient(clients.KServeConfig{
-			Namespace: config.KServeNamespace,
-			Timeout:   config.RequestTimeout,
-			Enabled:   true,
+			Namespace:  config.KServeNamespace,
+			Timeout:    config.RequestTimeout,
+			Enabled:    true,
+			RestConfig: k8sClient.GetConfig(), // Pass Kubernetes config for CRD access
 		})
 		log.Printf("Initialized KServe client for namespace: %s", config.KServeNamespace)
 	} else {
