@@ -254,11 +254,17 @@ func (c *KServeClient) buildAnomalyDetectionRequest(metrics []MetricData) *Infer
 		data = append(data, row)
 	}
 
+	// Determine shape - use 0 for second dimension if no metrics
+	secondDim := 0
+	if len(metrics) > 0 && len(metrics[0].Values) > 0 {
+		secondDim = len(metrics[0].Values)
+	}
+
 	return &InferenceRequest{
 		Inputs: []InferenceInput{
 			{
 				Name:     "metrics",
-				Shape:    []int{len(metrics), len(metrics[0].Values)},
+				Shape:    []int{len(metrics), secondDim},
 				Datatype: "FP64",
 				Data:     data,
 			},
@@ -327,11 +333,17 @@ func (c *KServeClient) buildPredictiveAnalyticsRequest(req *PredictiveAnalyticsR
 		data = append(data, row)
 	}
 
+	// Determine shape - use 0 for second dimension if no metrics
+	secondDim := 0
+	if len(req.Metrics) > 0 && len(req.Metrics[0].Values) > 0 {
+		secondDim = len(req.Metrics[0].Values)
+	}
+
 	return &InferenceRequest{
 		Inputs: []InferenceInput{
 			{
 				Name:     "features",
-				Shape:    []int{len(req.Metrics), len(req.Metrics[0].Values)},
+				Shape:    []int{len(req.Metrics), secondDim},
 				Datatype: "FP64",
 				Data:     data,
 			},

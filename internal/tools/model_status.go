@@ -89,7 +89,7 @@ func (t *GetModelStatusTool) Execute(ctx context.Context, args map[string]interf
 	}
 
 	if argsJSON, err := json.Marshal(args); err == nil {
-		_ = json.Unmarshal(argsJSON, &input) // Ignore error, use defaults if unmarshal fails
+		json.Unmarshal(argsJSON, &input)
 	}
 
 	// Validate required fields

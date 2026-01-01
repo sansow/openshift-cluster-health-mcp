@@ -79,12 +79,12 @@ func TestOLSMCPServerExpectations(t *testing.T) {
 	// Register endpoints in the same order as production
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte("OK"))
+		w.Write([]byte("OK"))
 	})
 
 	mux.HandleFunc("/ready", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte("READY"))
+		w.Write([]byte("READY"))
 	})
 
 	// Create MCP handler
