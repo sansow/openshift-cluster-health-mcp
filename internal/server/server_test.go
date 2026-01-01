@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/openshift-aiops/openshift-cluster-health-mcp/pkg/cache"
 	"github.com/openshift-aiops/openshift-cluster-health-mcp/pkg/clients"
 )
@@ -25,11 +26,20 @@ func setupTestServer(t *testing.T) *MCPServer {
 
 	memoryCache := cache.NewMemoryCache(30 * time.Second)
 
+	// Create MCP server with metadata (same as NewMCPServer)
+	impl := &mcp.Implementation{
+		Name:    config.Name,
+		Version: config.Version,
+	}
+	mcpServer := mcp.NewServer(impl, nil)
+
 	server := &MCPServer{
 		config:    config,
+		mcpServer: mcpServer,
 		k8sClient: k8sClient,
 		cache:     memoryCache,
 		tools:     make(map[string]interface{}),
+		resources: make(map[string]interface{}),
 	}
 
 	if err := server.registerTools(); err != nil {

@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/openshift-aiops/openshift-cluster-health-mcp/pkg/cache"
 	"github.com/openshift-aiops/openshift-cluster-health-mcp/pkg/clients"
 )
@@ -46,8 +47,8 @@ func TestOLSMCPServerExpectations(t *testing.T) {
 			headers: map[string]string{
 				"Content-Type": "application/json",
 			},
-			expectedStatus:      http.StatusOK,
-			expectedContentType: "", // Will depend on MCP protocol response
+			expectedStatus:      http.StatusBadRequest, // Empty POST should fail - valid messages tested in TestMCPProtocolNegotiation
+			expectedContentType: "",                    // Will depend on MCP protocol response
 			description:         "OLS Python client sends POST requests to send MCP messages",
 		},
 		{
@@ -163,12 +164,13 @@ func setupOLSTestServer(t *testing.T) *MCPServer {
 
 // createMCPHandler creates the MCP handler (extracted for testing)
 func (s *MCPServer) createMCPHandler() http.Handler {
-	// This should return the same handler used in production
-	// We'll need to extract this logic from startHTTPTransport
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Temporary placeholder - will be replaced with actual MCP handler
-		w.WriteHeader(http.StatusOK)
-	})
+	// Create the MCP SSE handler (same as production code in startHTTPTransport)
+	// OpenShift Lightspeed expects SSE transport at the root endpoint
+	mcpHandler := mcp.NewSSEHandler(func(req *http.Request) *mcp.Server {
+		return s.mcpServer
+	}, nil)
+
+	return mcpHandler
 }
 
 // TestMCPProtocolNegotiation tests that the server properly negotiates MCP protocol
@@ -253,8 +255,16 @@ func setupOLSBenchServer(b *testing.B) *MCPServer {
 
 	memoryCache := cache.NewMemoryCache(30 * time.Second)
 
+	// Create MCP server with metadata (same as NewMCPServer)
+	impl := &mcp.Implementation{
+		Name:    config.Name,
+		Version: config.Version,
+	}
+	mcpServer := mcp.NewServer(impl, nil)
+
 	server := &MCPServer{
 		config:    config,
+		mcpServer: mcpServer,
 		k8sClient: k8sClient,
 		cache:     memoryCache,
 		tools:     make(map[string]interface{}),
