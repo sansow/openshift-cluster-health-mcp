@@ -71,7 +71,7 @@ jobs:
             VERSION=${{ steps.meta.outputs.version }}
 
       - name: Image digest
-        run: echo ${{ steps.meta.outputs.tags }}
+        run: echo "${{ steps.meta.outputs.tags }}"
 
       - name: Verify image size
         if: github.event_name != 'pull_request'
