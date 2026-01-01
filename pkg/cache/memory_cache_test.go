@@ -230,7 +230,7 @@ func TestMemoryCache_GetOrSetWithTTL(t *testing.T) {
 	}
 
 	// Should be cached immediately
-	value, err = cache.GetOrSetWithTTL(ctx, "key1", 100*time.Millisecond, compute)
+	_, err = cache.GetOrSetWithTTL(ctx, "key1", 100*time.Millisecond, compute)
 	if err != nil {
 		t.Fatalf("GetOrSetWithTTL failed: %v", err)
 	}
@@ -242,7 +242,7 @@ func TestMemoryCache_GetOrSetWithTTL(t *testing.T) {
 	time.Sleep(150 * time.Millisecond)
 
 	// Should compute again
-	value, err = cache.GetOrSetWithTTL(ctx, "key1", 100*time.Millisecond, compute)
+	_, err = cache.GetOrSetWithTTL(ctx, "key1", 100*time.Millisecond, compute)
 	if err != nil {
 		t.Fatalf("GetOrSetWithTTL failed: %v", err)
 	}

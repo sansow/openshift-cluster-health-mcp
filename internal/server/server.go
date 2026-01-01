@@ -267,16 +267,22 @@ func (s *MCPServer) startHTTPTransport(ctx context.Context) error {
 		switch r.URL.Path {
 		case "/health":
 			w.WriteHeader(http.StatusOK)
-			fmt.Fprint(w, "OK")
+			if _, err := fmt.Fprint(w, "OK"); err != nil {
+				log.Printf("Error writing health response: %v", err)
+			}
 			return
 		case "/ready":
 			w.WriteHeader(http.StatusOK)
-			fmt.Fprint(w, "READY")
+			if _, err := fmt.Fprint(w, "READY"); err != nil {
+				log.Printf("Error writing ready response: %v", err)
+			}
 			return
 		case "/metrics":
 			// TODO: Implement Prometheus metrics in Phase 3
 			w.WriteHeader(http.StatusOK)
-			fmt.Fprint(w, "# Metrics endpoint (Phase 3)\n")
+			if _, err := fmt.Fprint(w, "# Metrics endpoint (Phase 3)\n"); err != nil {
+				log.Printf("Error writing metrics response: %v", err)
+			}
 			return
 		case "/cache/stats":
 			s.handleCacheStats(w, r)
@@ -342,8 +348,10 @@ func (s *MCPServer) startStdioTransport(ctx context.Context) error {
 func (s *MCPServer) handleMCPInfo(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	fmt.Fprintf(w, `{"name":"%s","version":"%s","transport":"http/sse","tools_count":%d,"resources_count":%d}`,
-		s.config.Name, s.config.Version, len(s.tools), len(s.resources))
+	if _, err := fmt.Fprintf(w, `{"name":"%s","version":"%s","transport":"http/sse","tools_count":%d,"resources_count":%d}`,
+		s.config.Name, s.config.Version, len(s.tools), len(s.resources)); err != nil {
+		log.Printf("Error writing MCP info response: %v", err)
+	}
 }
 
 // handleListTools returns all available tools
@@ -432,12 +440,16 @@ func (s *MCPServer) handleClusterHealthTool(w http.ResponseWriter, r *http.Reque
 	// Parse request body for arguments
 	var args map[string]interface{}
 	if r.Body != nil {
+		defer func() {
+			if err := r.Body.Close(); err != nil {
+				log.Printf("Error closing request body: %v", err)
+			}
+		}()
 		decoder := json.NewDecoder(r.Body)
 		if err := decoder.Decode(&args); err != nil {
 			// If no body or invalid JSON, use empty args
 			args = make(map[string]interface{})
 		}
-		defer r.Body.Close()
 	} else {
 		args = make(map[string]interface{})
 	}
@@ -481,12 +493,16 @@ func (s *MCPServer) handleListPodsTool(w http.ResponseWriter, r *http.Request) {
 	// Parse request body for arguments
 	var args map[string]interface{}
 	if r.Body != nil {
+		defer func() {
+			if err := r.Body.Close(); err != nil {
+				log.Printf("Error closing request body: %v", err)
+			}
+		}()
 		decoder := json.NewDecoder(r.Body)
 		if err := decoder.Decode(&args); err != nil {
 			// If no body or invalid JSON, use empty args
 			args = make(map[string]interface{})
 		}
-		defer r.Body.Close()
 	} else {
 		args = make(map[string]interface{})
 	}

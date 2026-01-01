@@ -14,7 +14,11 @@ func TestClusterHealthTool_Name(t *testing.T) {
 	if err != nil {
 		t.Skipf("Skipping: unable to create Kubernetes client: %v", err)
 	}
-	defer client.Close()
+	defer func() {
+		if err := client.Close(); err != nil {
+			t.Logf("Error closing client: %v", err)
+		}
+	}()
 
 	memCache := cache.NewMemoryCache(30 * time.Second)
 	defer memCache.Close()
@@ -31,7 +35,11 @@ func TestClusterHealthTool_Description(t *testing.T) {
 	if err != nil {
 		t.Skipf("Skipping: unable to create Kubernetes client: %v", err)
 	}
-	defer client.Close()
+	defer func() {
+		if err := client.Close(); err != nil {
+			t.Logf("Error closing client: %v", err)
+		}
+	}()
 
 	memCache := cache.NewMemoryCache(30 * time.Second)
 	defer memCache.Close()
@@ -52,7 +60,11 @@ func TestClusterHealthTool_InputSchema(t *testing.T) {
 	if err != nil {
 		t.Skipf("Skipping: unable to create Kubernetes client: %v", err)
 	}
-	defer client.Close()
+	defer func() {
+		if err := client.Close(); err != nil {
+			t.Logf("Error closing client: %v", err)
+		}
+	}()
 
 	memCache := cache.NewMemoryCache(30 * time.Second)
 	defer memCache.Close()
@@ -90,7 +102,11 @@ func TestClusterHealthTool_Execute(t *testing.T) {
 	if err != nil {
 		t.Skipf("Skipping: unable to create Kubernetes client: %v", err)
 	}
-	defer client.Close()
+	defer func() {
+		if err := client.Close(); err != nil {
+			t.Logf("Error closing client: %v", err)
+		}
+	}()
 
 	memCache := cache.NewMemoryCache(30 * time.Second)
 	defer memCache.Close()
@@ -132,7 +148,11 @@ func TestClusterHealthTool_Execute_WithoutDetails(t *testing.T) {
 	if err != nil {
 		t.Skipf("Skipping: unable to create Kubernetes client: %v", err)
 	}
-	defer client.Close()
+	defer func() {
+		if err := client.Close(); err != nil {
+			t.Logf("Error closing client: %v", err)
+		}
+	}()
 
 	memCache := cache.NewMemoryCache(30 * time.Second)
 	defer memCache.Close()
@@ -173,7 +193,11 @@ func TestClusterHealthTool_CacheUsage(t *testing.T) {
 	if err != nil {
 		t.Skipf("Skipping: unable to create Kubernetes client: %v", err)
 	}
-	defer client.Close()
+	defer func() {
+		if err := client.Close(); err != nil {
+			t.Logf("Error closing client: %v", err)
+		}
+	}()
 
 	memCache := cache.NewMemoryCache(30 * time.Second)
 	defer memCache.Close()

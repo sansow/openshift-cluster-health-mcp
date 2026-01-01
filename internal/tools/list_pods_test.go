@@ -13,7 +13,11 @@ func TestListPodsTool_Name(t *testing.T) {
 	if err != nil {
 		t.Skipf("Skipping: unable to create Kubernetes client: %v", err)
 	}
-	defer client.Close()
+	defer func() {
+		if err := client.Close(); err != nil {
+			t.Logf("Error closing client: %v", err)
+		}
+	}()
 
 	tool := NewListPodsTool(client)
 
@@ -27,7 +31,11 @@ func TestListPodsTool_Description(t *testing.T) {
 	if err != nil {
 		t.Skipf("Skipping: unable to create Kubernetes client: %v", err)
 	}
-	defer client.Close()
+	defer func() {
+		if err := client.Close(); err != nil {
+			t.Logf("Error closing client: %v", err)
+		}
+	}()
 
 	tool := NewListPodsTool(client)
 
@@ -45,7 +53,11 @@ func TestListPodsTool_InputSchema(t *testing.T) {
 	if err != nil {
 		t.Skipf("Skipping: unable to create Kubernetes client: %v", err)
 	}
-	defer client.Close()
+	defer func() {
+		if err := client.Close(); err != nil {
+			t.Logf("Error closing client: %v", err)
+		}
+	}()
 
 	tool := NewListPodsTool(client)
 
@@ -78,7 +90,11 @@ func TestListPodsTool_Execute_Default(t *testing.T) {
 	if err != nil {
 		t.Skipf("Skipping: unable to create Kubernetes client: %v", err)
 	}
-	defer client.Close()
+	defer func() {
+		if err := client.Close(); err != nil {
+			t.Logf("Error closing client: %v", err)
+		}
+	}()
 
 	tool := NewListPodsTool(client)
 	ctx := context.Background()
@@ -115,7 +131,11 @@ func TestListPodsTool_Execute_WithNamespace(t *testing.T) {
 	if err != nil {
 		t.Skipf("Skipping: unable to create Kubernetes client: %v", err)
 	}
-	defer client.Close()
+	defer func() {
+		if err := client.Close(); err != nil {
+			t.Logf("Error closing client: %v", err)
+		}
+	}()
 
 	tool := NewListPodsTool(client)
 	ctx := context.Background()
@@ -157,7 +177,11 @@ func TestListPodsTool_Execute_WithFieldSelector(t *testing.T) {
 	if err != nil {
 		t.Skipf("Skipping: unable to create Kubernetes client: %v", err)
 	}
-	defer client.Close()
+	defer func() {
+		if err := client.Close(); err != nil {
+			t.Logf("Error closing client: %v", err)
+		}
+	}()
 
 	tool := NewListPodsTool(client)
 	ctx := context.Background()
@@ -199,7 +223,11 @@ func TestListPodsTool_PodInfo(t *testing.T) {
 	if err != nil {
 		t.Skipf("Skipping: unable to create Kubernetes client: %v", err)
 	}
-	defer client.Close()
+	defer func() {
+		if err := client.Close(); err != nil {
+			t.Logf("Error closing client: %v", err)
+		}
+	}()
 
 	tool := NewListPodsTool(client)
 	ctx := context.Background()

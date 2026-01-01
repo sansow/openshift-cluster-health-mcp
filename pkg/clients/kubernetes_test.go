@@ -39,7 +39,11 @@ func TestNewK8sClient(t *testing.T) {
 				t.Error("NewK8sClient() returned nil client")
 			}
 			if client != nil {
-				defer client.Close()
+				defer func() {
+					if err := client.Close(); err != nil {
+						t.Logf("Error closing client: %v", err)
+					}
+				}()
 			}
 		})
 	}
@@ -50,7 +54,11 @@ func TestK8sClient_HealthCheck(t *testing.T) {
 	if err != nil {
 		t.Skipf("Skipping: unable to create Kubernetes client: %v", err)
 	}
-	defer client.Close()
+	defer func() {
+		if err := client.Close(); err != nil {
+			t.Logf("Error closing client: %v", err)
+		}
+	}()
 
 	ctx := context.Background()
 	err = client.HealthCheck(ctx)
@@ -64,7 +72,11 @@ func TestK8sClient_GetServerVersion(t *testing.T) {
 	if err != nil {
 		t.Skipf("Skipping: unable to create Kubernetes client: %v", err)
 	}
-	defer client.Close()
+	defer func() {
+		if err := client.Close(); err != nil {
+			t.Logf("Error closing client: %v", err)
+		}
+	}()
 
 	ctx := context.Background()
 	version, err := client.GetServerVersion(ctx)
@@ -82,7 +94,11 @@ func TestK8sClient_ListNodes(t *testing.T) {
 	if err != nil {
 		t.Skipf("Skipping: unable to create Kubernetes client: %v", err)
 	}
-	defer client.Close()
+	defer func() {
+		if err := client.Close(); err != nil {
+			t.Logf("Error closing client: %v", err)
+		}
+	}()
 
 	ctx := context.Background()
 	nodes, err := client.ListNodes(ctx)
@@ -100,15 +116,19 @@ func TestK8sClient_GetClusterHealth(t *testing.T) {
 	if err != nil {
 		t.Skipf("Skipping: unable to create Kubernetes client: %v", err)
 	}
-	defer client.Close()
+	defer func() {
+		if err := client.Close(); err != nil {
+			t.Logf("Error closing client: %v", err)
+		}
+	}()
 
 	ctx := context.Background()
 	health, err := client.GetClusterHealth(ctx)
 	if err != nil {
-		t.Errorf("GetClusterHealth() failed: %v", err)
+		t.Fatalf("GetClusterHealth() failed: %v", err)
 	}
 	if health == nil {
-		t.Error("GetClusterHealth() returned nil")
+		t.Fatal("GetClusterHealth() returned nil")
 	}
 
 	t.Logf("Cluster Health:")
@@ -124,7 +144,11 @@ func TestK8sClient_GetNode(t *testing.T) {
 	if err != nil {
 		t.Skipf("Skipping: unable to create Kubernetes client: %v", err)
 	}
-	defer client.Close()
+	defer func() {
+		if err := client.Close(); err != nil {
+			t.Logf("Error closing client: %v", err)
+		}
+	}()
 
 	ctx := context.Background()
 
@@ -156,7 +180,11 @@ func TestK8sClient_ListPods(t *testing.T) {
 	if err != nil {
 		t.Skipf("Skipping: unable to create Kubernetes client: %v", err)
 	}
-	defer client.Close()
+	defer func() {
+		if err := client.Close(); err != nil {
+			t.Logf("Error closing client: %v", err)
+		}
+	}()
 
 	ctx := context.Background()
 
@@ -190,7 +218,11 @@ func TestK8sClient_GetPod(t *testing.T) {
 	if err != nil {
 		t.Skipf("Skipping: unable to create Kubernetes client: %v", err)
 	}
-	defer client.Close()
+	defer func() {
+		if err := client.Close(); err != nil {
+			t.Logf("Error closing client: %v", err)
+		}
+	}()
 
 	ctx := context.Background()
 
@@ -224,7 +256,11 @@ func TestK8sClient_ListNamespaces(t *testing.T) {
 	if err != nil {
 		t.Skipf("Skipping: unable to create Kubernetes client: %v", err)
 	}
-	defer client.Close()
+	defer func() {
+		if err := client.Close(); err != nil {
+			t.Logf("Error closing client: %v", err)
+		}
+	}()
 
 	ctx := context.Background()
 	namespaces, err := client.ListNamespaces(ctx)
@@ -242,7 +278,11 @@ func TestK8sClient_ListEvents(t *testing.T) {
 	if err != nil {
 		t.Skipf("Skipping: unable to create Kubernetes client: %v", err)
 	}
-	defer client.Close()
+	defer func() {
+		if err := client.Close(); err != nil {
+			t.Logf("Error closing client: %v", err)
+		}
+	}()
 
 	ctx := context.Background()
 
@@ -276,7 +316,11 @@ func TestK8sClient_Clientset(t *testing.T) {
 	if err != nil {
 		t.Skipf("Skipping: unable to create Kubernetes client: %v", err)
 	}
-	defer client.Close()
+	defer func() {
+		if err := client.Close(); err != nil {
+			t.Logf("Error closing client: %v", err)
+		}
+	}()
 
 	clientset := client.Clientset()
 	if clientset == nil {
@@ -289,7 +333,11 @@ func TestK8sClient_GetConfig(t *testing.T) {
 	if err != nil {
 		t.Skipf("Skipping: unable to create Kubernetes client: %v", err)
 	}
-	defer client.Close()
+	defer func() {
+		if err := client.Close(); err != nil {
+			t.Logf("Error closing client: %v", err)
+		}
+	}()
 
 	config := client.GetConfig()
 	if config == nil {

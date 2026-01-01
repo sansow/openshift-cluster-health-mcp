@@ -70,7 +70,11 @@ func TestOLSMCPServerExpectations(t *testing.T) {
 
 	// Create test server
 	server := setupOLSTestServer(t)
-	defer server.k8sClient.Close()
+	defer func() {
+		if err := server.k8sClient.Close(); err != nil {
+			t.Logf("Error closing k8s client: %v", err)
+		}
+	}()
 	defer server.cache.Close()
 
 	// Start HTTP server in test mode
@@ -116,7 +120,7 @@ func TestOLSMCPServerExpectations(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Request failed: %v", err)
 			}
-			defer resp.Body.Close()
+			defer func() { _ = resp.Body.Close() }()
 
 			// Check status code
 			if resp.StatusCode != tt.expectedStatus {
@@ -170,7 +174,11 @@ func (s *MCPServer) createMCPHandler() http.Handler {
 // TestMCPProtocolNegotiation tests that the server properly negotiates MCP protocol
 func TestMCPProtocolNegotiation(t *testing.T) {
 	server := setupOLSTestServer(t)
-	defer server.k8sClient.Close()
+	defer func() {
+		if err := server.k8sClient.Close(); err != nil {
+			t.Logf("Error closing k8s client: %v", err)
+		}
+	}()
 	defer server.cache.Close()
 
 	// Test SSE connection establishment
@@ -195,7 +203,11 @@ func TestMCPProtocolNegotiation(t *testing.T) {
 // TestToolDiscovery validates that OLS can discover our MCP tools
 func TestToolDiscovery(t *testing.T) {
 	server := setupOLSTestServer(t)
-	defer server.k8sClient.Close()
+	defer func() {
+		if err := server.k8sClient.Close(); err != nil {
+			t.Logf("Error closing k8s client: %v", err)
+		}
+	}()
 	defer server.cache.Close()
 
 	// Test that all expected tools are discoverable
@@ -214,7 +226,11 @@ func TestToolDiscovery(t *testing.T) {
 // Benchmark OLS MCP client connection overhead
 func BenchmarkOLSMCPConnection(b *testing.B) {
 	server := setupOLSBenchServer(b)
-	defer server.k8sClient.Close()
+	defer func() {
+		if err := server.k8sClient.Close(); err != nil {
+			b.Logf("Error closing k8s client: %v", err)
+		}
+	}()
 	defer server.cache.Close()
 
 	b.ResetTimer()

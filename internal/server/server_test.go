@@ -47,7 +47,11 @@ func TestNewMCPServer(t *testing.T) {
 	if err != nil {
 		t.Skipf("Skipping: unable to create server: %v", err)
 	}
-	defer server.k8sClient.Close()
+	defer func() {
+		if err := server.k8sClient.Close(); err != nil {
+			t.Logf("Error closing k8s client: %v", err)
+		}
+	}()
 	defer server.cache.Close()
 
 	if server.config.Name != config.Name {
@@ -61,7 +65,11 @@ func TestNewMCPServer(t *testing.T) {
 
 func TestMCPServer_RegisterTools(t *testing.T) {
 	server := setupTestServer(t)
-	defer server.k8sClient.Close()
+	defer func() {
+		if err := server.k8sClient.Close(); err != nil {
+			t.Logf("Error closing k8s client: %v", err)
+		}
+	}()
 	defer server.cache.Close()
 
 	expectedTools := []string{"get-cluster-health", "list-pods"}
@@ -78,7 +86,11 @@ func TestMCPServer_RegisterTools(t *testing.T) {
 
 func TestHandleMCPInfo(t *testing.T) {
 	server := setupTestServer(t)
-	defer server.k8sClient.Close()
+	defer func() {
+		if err := server.k8sClient.Close(); err != nil {
+			t.Logf("Error closing k8s client: %v", err)
+		}
+	}()
 	defer server.cache.Close()
 
 	req := httptest.NewRequest(http.MethodGet, "/mcp", nil)
@@ -87,7 +99,7 @@ func TestHandleMCPInfo(t *testing.T) {
 	server.handleMCPInfo(w, req)
 
 	resp := w.Result()
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		t.Errorf("Expected status 200, got %d", resp.StatusCode)
@@ -114,7 +126,11 @@ func TestHandleMCPInfo(t *testing.T) {
 
 func TestHandleListTools(t *testing.T) {
 	server := setupTestServer(t)
-	defer server.k8sClient.Close()
+	defer func() {
+		if err := server.k8sClient.Close(); err != nil {
+			t.Logf("Error closing k8s client: %v", err)
+		}
+	}()
 	defer server.cache.Close()
 
 	req := httptest.NewRequest(http.MethodGet, "/mcp/tools", nil)
@@ -123,7 +139,7 @@ func TestHandleListTools(t *testing.T) {
 	server.handleListTools(w, req)
 
 	resp := w.Result()
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		t.Errorf("Expected status 200, got %d", resp.StatusCode)
@@ -151,7 +167,11 @@ func TestHandleListTools(t *testing.T) {
 
 func TestHandleListTools_MethodNotAllowed(t *testing.T) {
 	server := setupTestServer(t)
-	defer server.k8sClient.Close()
+	defer func() {
+		if err := server.k8sClient.Close(); err != nil {
+			t.Logf("Error closing k8s client: %v", err)
+		}
+	}()
 	defer server.cache.Close()
 
 	req := httptest.NewRequest(http.MethodPost, "/mcp/tools", nil)
@@ -160,7 +180,7 @@ func TestHandleListTools_MethodNotAllowed(t *testing.T) {
 	server.handleListTools(w, req)
 
 	resp := w.Result()
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusMethodNotAllowed {
 		t.Errorf("Expected status 405, got %d", resp.StatusCode)
@@ -169,7 +189,11 @@ func TestHandleListTools_MethodNotAllowed(t *testing.T) {
 
 func TestHandleClusterHealthTool(t *testing.T) {
 	server := setupTestServer(t)
-	defer server.k8sClient.Close()
+	defer func() {
+		if err := server.k8sClient.Close(); err != nil {
+			t.Logf("Error closing k8s client: %v", err)
+		}
+	}()
 	defer server.cache.Close()
 
 	// Test with default args
@@ -181,7 +205,7 @@ func TestHandleClusterHealthTool(t *testing.T) {
 	server.handleClusterHealthTool(w, req)
 
 	resp := w.Result()
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		t.Errorf("Expected status 200, got %d", resp.StatusCode)
@@ -203,7 +227,11 @@ func TestHandleClusterHealthTool(t *testing.T) {
 
 func TestHandleClusterHealthTool_WithArgs(t *testing.T) {
 	server := setupTestServer(t)
-	defer server.k8sClient.Close()
+	defer func() {
+		if err := server.k8sClient.Close(); err != nil {
+			t.Logf("Error closing k8s client: %v", err)
+		}
+	}()
 	defer server.cache.Close()
 
 	// Test with include_details: false
@@ -215,7 +243,7 @@ func TestHandleClusterHealthTool_WithArgs(t *testing.T) {
 	server.handleClusterHealthTool(w, req)
 
 	resp := w.Result()
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		t.Errorf("Expected status 200, got %d", resp.StatusCode)
@@ -233,7 +261,11 @@ func TestHandleClusterHealthTool_WithArgs(t *testing.T) {
 
 func TestHandleClusterHealthTool_MethodNotAllowed(t *testing.T) {
 	server := setupTestServer(t)
-	defer server.k8sClient.Close()
+	defer func() {
+		if err := server.k8sClient.Close(); err != nil {
+			t.Logf("Error closing k8s client: %v", err)
+		}
+	}()
 	defer server.cache.Close()
 
 	req := httptest.NewRequest(http.MethodGet, "/mcp/tools/get-cluster-health/call", nil)
@@ -242,7 +274,7 @@ func TestHandleClusterHealthTool_MethodNotAllowed(t *testing.T) {
 	server.handleClusterHealthTool(w, req)
 
 	resp := w.Result()
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusMethodNotAllowed {
 		t.Errorf("Expected status 405, got %d", resp.StatusCode)
@@ -251,7 +283,11 @@ func TestHandleClusterHealthTool_MethodNotAllowed(t *testing.T) {
 
 func TestHandleListPodsTool(t *testing.T) {
 	server := setupTestServer(t)
-	defer server.k8sClient.Close()
+	defer func() {
+		if err := server.k8sClient.Close(); err != nil {
+			t.Logf("Error closing k8s client: %v", err)
+		}
+	}()
 	defer server.cache.Close()
 
 	// Test with limit
@@ -263,7 +299,7 @@ func TestHandleListPodsTool(t *testing.T) {
 	server.handleListPodsTool(w, req)
 
 	resp := w.Result()
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		t.Errorf("Expected status 200, got %d", resp.StatusCode)
@@ -281,7 +317,11 @@ func TestHandleListPodsTool(t *testing.T) {
 
 func TestHandleListPodsTool_WithNamespace(t *testing.T) {
 	server := setupTestServer(t)
-	defer server.k8sClient.Close()
+	defer func() {
+		if err := server.k8sClient.Close(); err != nil {
+			t.Logf("Error closing k8s client: %v", err)
+		}
+	}()
 	defer server.cache.Close()
 
 	// Test with namespace filter
@@ -293,7 +333,7 @@ func TestHandleListPodsTool_WithNamespace(t *testing.T) {
 	server.handleListPodsTool(w, req)
 
 	resp := w.Result()
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		t.Errorf("Expected status 200, got %d", resp.StatusCode)
@@ -311,7 +351,11 @@ func TestHandleListPodsTool_WithNamespace(t *testing.T) {
 
 func TestHandleListPodsTool_MethodNotAllowed(t *testing.T) {
 	server := setupTestServer(t)
-	defer server.k8sClient.Close()
+	defer func() {
+		if err := server.k8sClient.Close(); err != nil {
+			t.Logf("Error closing k8s client: %v", err)
+		}
+	}()
 	defer server.cache.Close()
 
 	req := httptest.NewRequest(http.MethodGet, "/mcp/tools/list-pods/call", nil)
@@ -320,7 +364,7 @@ func TestHandleListPodsTool_MethodNotAllowed(t *testing.T) {
 	server.handleListPodsTool(w, req)
 
 	resp := w.Result()
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusMethodNotAllowed {
 		t.Errorf("Expected status 405, got %d", resp.StatusCode)
@@ -329,7 +373,11 @@ func TestHandleListPodsTool_MethodNotAllowed(t *testing.T) {
 
 func TestHandleCacheStats(t *testing.T) {
 	server := setupTestServer(t)
-	defer server.k8sClient.Close()
+	defer func() {
+		if err := server.k8sClient.Close(); err != nil {
+			t.Logf("Error closing k8s client: %v", err)
+		}
+	}()
 	defer server.cache.Close()
 
 	req := httptest.NewRequest(http.MethodGet, "/cache/stats", nil)
@@ -338,7 +386,7 @@ func TestHandleCacheStats(t *testing.T) {
 	server.handleCacheStats(w, req)
 
 	resp := w.Result()
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		t.Errorf("Expected status 200, got %d", resp.StatusCode)
@@ -357,7 +405,11 @@ func TestHandleCacheStats(t *testing.T) {
 
 func TestHandleCacheStats_MethodNotAllowed(t *testing.T) {
 	server := setupTestServer(t)
-	defer server.k8sClient.Close()
+	defer func() {
+		if err := server.k8sClient.Close(); err != nil {
+			t.Logf("Error closing k8s client: %v", err)
+		}
+	}()
 	defer server.cache.Close()
 
 	req := httptest.NewRequest(http.MethodPost, "/cache/stats", nil)
@@ -366,7 +418,7 @@ func TestHandleCacheStats_MethodNotAllowed(t *testing.T) {
 	server.handleCacheStats(w, req)
 
 	resp := w.Result()
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusMethodNotAllowed {
 		t.Errorf("Expected status 405, got %d", resp.StatusCode)
@@ -423,7 +475,11 @@ func TestConfigValidation(t *testing.T) {
 
 func TestHTTPServerIntegration(t *testing.T) {
 	server := setupTestServer(t)
-	defer server.k8sClient.Close()
+	defer func() {
+		if err := server.k8sClient.Close(); err != nil {
+			t.Logf("Error closing k8s client: %v", err)
+		}
+	}()
 	defer server.cache.Close()
 
 	// Start server in background

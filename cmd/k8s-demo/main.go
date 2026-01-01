@@ -20,7 +20,11 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to create Kubernetes client: %v", err)
 	}
-	defer client.Close()
+	defer func() {
+		if err := client.Close(); err != nil {
+			log.Printf("Error closing client: %v", err)
+		}
+	}()
 
 	ctx := context.Background()
 

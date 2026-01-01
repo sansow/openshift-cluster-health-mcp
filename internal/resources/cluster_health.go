@@ -170,10 +170,11 @@ func (r *ClusterHealthResource) cacheAndReturn(cacheKey string, data ClusterHeal
 
 // generateHealthMessage creates a human-readable health message
 func generateHealthMessage(health *clients.ClusterHealth) string {
-	if health.Status == "healthy" {
+	switch health.Status {
+	case "healthy":
 		return fmt.Sprintf("Cluster is healthy: %d/%d nodes ready, %d/%d pods running",
 			health.Nodes.Ready, health.Nodes.Total, health.Pods.Running, health.Pods.Total)
-	} else if health.Status == "degraded" {
+	case "degraded":
 		issues := []string{}
 		if health.Nodes.NotReady > 0 {
 			issues = append(issues, fmt.Sprintf("%d nodes not ready", health.Nodes.NotReady))
@@ -188,6 +189,7 @@ func generateHealthMessage(health *clients.ClusterHealth) string {
 			return fmt.Sprintf("Cluster is degraded: %v", issues)
 		}
 		return "Cluster is degraded"
+	default:
+		return "Cluster status: " + health.Status
 	}
-	return "Cluster status: " + health.Status
 }

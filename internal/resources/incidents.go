@@ -124,11 +124,12 @@ func (r *IncidentsResource) Read(ctx context.Context) (string, error) {
 		if incident.StartedAt != nil {
 			incidentInfo.UpdatedAt = *incident.StartedAt
 		}
-		if incident.Status == "running" {
+		switch incident.Status {
+		case "running":
 			incidentInfo.RemediationState = "in_progress"
-		} else if incident.Status == "completed" {
+		case "completed":
 			incidentInfo.RemediationState = "completed"
-		} else {
+		default:
 			incidentInfo.RemediationState = "pending"
 		}
 

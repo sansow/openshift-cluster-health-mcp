@@ -185,11 +185,12 @@ func getNodeStatus(node *corev1.Node) string {
 func getNodeRoles(labels map[string]string) []string {
 	roles := []string{}
 	for key := range labels {
-		if key == "node-role.kubernetes.io/master" || key == "node-role.kubernetes.io/control-plane" {
+		switch key {
+		case "node-role.kubernetes.io/master", "node-role.kubernetes.io/control-plane":
 			roles = append(roles, "control-plane")
-		} else if key == "node-role.kubernetes.io/worker" {
+		case "node-role.kubernetes.io/worker":
 			roles = append(roles, "worker")
-		} else if key == "node-role.kubernetes.io/infra" {
+		case "node-role.kubernetes.io/infra":
 			roles = append(roles, "infra")
 		}
 	}
