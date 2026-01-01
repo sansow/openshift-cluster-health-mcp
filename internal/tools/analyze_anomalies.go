@@ -77,13 +77,13 @@ type AnalyzeAnomaliesInput struct {
 
 // AnomalyResult represents a detected anomaly
 type AnomalyResult struct {
-	Timestamp     string  `json:"timestamp"`
-	MetricName    string  `json:"metric_name"`
-	Value         float64 `json:"value"`
-	AnomalyScore  float64 `json:"anomaly_score"`
-	Confidence    float64 `json:"confidence"`
-	Severity      string  `json:"severity"`
-	Explanation   string  `json:"explanation"`
+	Timestamp    string  `json:"timestamp"`
+	MetricName   string  `json:"metric_name"`
+	Value        float64 `json:"value"`
+	AnomalyScore float64 `json:"anomaly_score"`
+	Confidence   float64 `json:"confidence"`
+	Severity     string  `json:"severity"`
+	Explanation  string  `json:"explanation"`
 }
 
 // AnalyzeAnomaliesOutput represents the tool output
@@ -111,7 +111,7 @@ func (t *AnalyzeAnomaliesTool) Execute(ctx context.Context, args map[string]inte
 	}
 
 	if argsJSON, err := json.Marshal(args); err == nil {
-		json.Unmarshal(argsJSON, &input)
+		_ = json.Unmarshal(argsJSON, &input) // Ignore error, use defaults if unmarshal fails
 	}
 
 	// Validate required fields

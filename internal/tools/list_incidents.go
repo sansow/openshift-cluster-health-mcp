@@ -75,11 +75,11 @@ type ListIncidentsInput struct {
 
 // ListIncidentsOutput represents the tool output
 type ListIncidentsOutput struct {
-	Status    string                              `json:"status"`
-	Incidents []clients.Incident                  `json:"incidents"`
-	Summary   clients.IncidentListResponse        `json:"summary"`
-	Message   string                              `json:"message"`
-	Count     int                                 `json:"count"`
+	Status    string                       `json:"status"`
+	Incidents []clients.Incident           `json:"incidents"`
+	Summary   clients.IncidentListResponse `json:"summary"`
+	Message   string                       `json:"message"`
+	Count     int                          `json:"count"`
 	Filters   struct {
 		Status   string `json:"status"`
 		Severity string `json:"severity"`
@@ -99,7 +99,7 @@ func (t *ListIncidentsTool) Execute(ctx context.Context, args map[string]interfa
 	}
 
 	if argsJSON, err := json.Marshal(args); err == nil {
-		json.Unmarshal(argsJSON, &input)
+		_ = json.Unmarshal(argsJSON, &input) // Ignore error, use defaults if unmarshal fails
 	}
 
 	// Call Coordination Engine API

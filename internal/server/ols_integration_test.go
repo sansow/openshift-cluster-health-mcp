@@ -20,13 +20,13 @@ import (
 // which expects streamable HTTP transport with SSE support
 func TestOLSMCPServerExpectations(t *testing.T) {
 	tests := []struct {
-		name               string
-		method             string
-		path               string
-		headers            map[string]string
-		expectedStatus     int
+		name                string
+		method              string
+		path                string
+		headers             map[string]string
+		expectedStatus      int
 		expectedContentType string
-		description        string
+		description         string
 	}{
 		{
 			name:   "GET root should return SSE stream for MCP protocol",
@@ -79,12 +79,12 @@ func TestOLSMCPServerExpectations(t *testing.T) {
 	// Register endpoints in the same order as production
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("OK"))
+		_, _ = w.Write([]byte("OK"))
 	})
 
 	mux.HandleFunc("/ready", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("READY"))
+		_, _ = w.Write([]byte("READY"))
 	})
 
 	// Create MCP handler

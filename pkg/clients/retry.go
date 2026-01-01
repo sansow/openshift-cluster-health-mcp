@@ -100,9 +100,10 @@ func isRetryable(err error) bool {
 
 // WithRetry wraps a Kubernetes operation with retry logic
 // Example:
-//   nodes, err := WithRetry(ctx, client, func(c *K8sClient) (*corev1.NodeList, error) {
-//       return c.ListNodes(ctx)
-//   })
+//
+//	nodes, err := WithRetry(ctx, client, func(c *K8sClient) (*corev1.NodeList, error) {
+//	    return c.ListNodes(ctx)
+//	})
 func WithRetry[T any](ctx context.Context, client *K8sClient, fn func(*K8sClient) (T, error)) (T, error) {
 	var result T
 	var resultErr error

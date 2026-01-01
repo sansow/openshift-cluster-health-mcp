@@ -50,10 +50,10 @@ type Incident struct {
 type IncidentListResponse struct {
 	Incidents []Incident `json:"incidents"`
 	Summary   struct {
-		Total     int            `json:"total"`
-		Active    int            `json:"active"`
-		Completed int            `json:"completed"`
-		Failed    int            `json:"failed"`
+		Total      int            `json:"total"`
+		Active     int            `json:"active"`
+		Completed  int            `json:"completed"`
+		Failed     int            `json:"failed"`
 		BySeverity map[string]int `json:"by_severity"`
 	} `json:"summary"`
 }
@@ -76,14 +76,14 @@ type CreateIncidentRequest struct {
 
 // CreateIncidentResponse represents the response from creating an incident
 type CreateIncidentResponse struct {
-	IncidentID  string  `json:"incident_id"`
-	Title       string  `json:"title"`
-	Description string  `json:"description"`
-	Severity    string  `json:"severity"`
-	Priority    int     `json:"priority"`
-	Status      string  `json:"status"`
-	CreatedAt   string  `json:"created_at"`
-	Message     string  `json:"message"`
+	IncidentID  string `json:"incident_id"`
+	Title       string `json:"title"`
+	Description string `json:"description"`
+	Severity    string `json:"severity"`
+	Priority    int    `json:"priority"`
+	Status      string `json:"status"`
+	CreatedAt   string `json:"created_at"`
+	Message     string `json:"message"`
 }
 
 // TriggerRemediationRequest represents a request to trigger remediation
@@ -116,29 +116,29 @@ type TriggerRemediationResponse struct {
 
 // AnalyzeAnomaliesRequest represents a request to analyze anomalies
 type AnalyzeAnomaliesRequest struct {
-	TimeRange          string                   `json:"timeRange,omitempty"` // e.g., "1h", "24h"
-	Metrics            []interface{}            `json:"metrics"`             // Can be metric names or full metric objects
-	Threshold          *float64                 `json:"threshold,omitempty"` // 0.0-1.0
-	IncludePredictions *bool                    `json:"includePredictions,omitempty"`
-	Models             []string                 `json:"models,omitempty"` // Specify which ML models to use
+	TimeRange          string        `json:"timeRange,omitempty"` // e.g., "1h", "24h"
+	Metrics            []interface{} `json:"metrics"`             // Can be metric names or full metric objects
+	Threshold          *float64      `json:"threshold,omitempty"` // 0.0-1.0
+	IncludePredictions *bool         `json:"includePredictions,omitempty"`
+	Models             []string      `json:"models,omitempty"` // Specify which ML models to use
 }
 
 // AnomalyPattern represents a detected anomaly pattern
 type AnomalyPattern struct {
-	Metric       string  `json:"metric"`
-	Type         string  `json:"type"`      // statistical_outlier, threshold_exceeded, trend_anomaly
-	Severity     string  `json:"severity"`  // low, medium, high, critical
-	Score        float64 `json:"score"`     // Confidence score
-	Timestamp    string  `json:"timestamp"`
-	Value        float64 `json:"value"`
-	ExpectedMin  float64 `json:"expected_min"`
-	ExpectedMax  float64 `json:"expected_max"`
-	Model        string  `json:"model"` // Which model detected it
+	Metric      string  `json:"metric"`
+	Type        string  `json:"type"`     // statistical_outlier, threshold_exceeded, trend_anomaly
+	Severity    string  `json:"severity"` // low, medium, high, critical
+	Score       float64 `json:"score"`    // Confidence score
+	Timestamp   string  `json:"timestamp"`
+	Value       float64 `json:"value"`
+	ExpectedMin float64 `json:"expected_min"`
+	ExpectedMax float64 `json:"expected_max"`
+	Model       string  `json:"model"` // Which model detected it
 }
 
 // Alert represents an alert from anomaly detection
 type Alert struct {
-	Type           string `json:"type"`     // resource_exhaustion, memory_issue, network_issue
+	Type           string `json:"type"` // resource_exhaustion, memory_issue, network_issue
 	Message        string `json:"message"`
 	Severity       string `json:"severity"`
 	ActionRequired bool   `json:"action_required"`

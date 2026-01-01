@@ -46,12 +46,12 @@ func (r *IncidentsResource) MimeType() string {
 
 // IncidentsData represents the incidents resource data
 type IncidentsData struct {
-	Timestamp      string         `json:"timestamp"`
-	TotalIncidents int            `json:"total_incidents"`
-	ActiveIncidents int           `json:"active_incidents"`
-	Summary        IncidentSummary `json:"summary"`
-	Incidents      []IncidentInfo `json:"incidents"`
-	Source         string         `json:"source"`
+	Timestamp       string          `json:"timestamp"`
+	TotalIncidents  int             `json:"total_incidents"`
+	ActiveIncidents int             `json:"active_incidents"`
+	Summary         IncidentSummary `json:"summary"`
+	Incidents       []IncidentInfo  `json:"incidents"`
+	Source          string          `json:"source"`
 }
 
 // IncidentSummary provides summary statistics
@@ -64,17 +64,17 @@ type IncidentSummary struct {
 
 // IncidentInfo represents a single incident
 type IncidentInfo struct {
-	ID               string    `json:"id"`
-	Severity         string    `json:"severity"`
-	Status           string    `json:"status"`
-	Type             string    `json:"type"`
-	Description      string    `json:"description"`
-	AffectedResource string    `json:"affected_resource,omitempty"`
-	Namespace        string    `json:"namespace,omitempty"`
-	CreatedAt        string    `json:"created_at"`
-	UpdatedAt        string    `json:"updated_at,omitempty"`
-	RemediationState string    `json:"remediation_state,omitempty"`
-	AssignedActions  int       `json:"assigned_actions,omitempty"`
+	ID               string `json:"id"`
+	Severity         string `json:"severity"`
+	Status           string `json:"status"`
+	Type             string `json:"type"`
+	Description      string `json:"description"`
+	AffectedResource string `json:"affected_resource,omitempty"`
+	Namespace        string `json:"namespace,omitempty"`
+	CreatedAt        string `json:"created_at"`
+	UpdatedAt        string `json:"updated_at,omitempty"`
+	RemediationState string `json:"remediation_state,omitempty"`
+	AssignedActions  int    `json:"assigned_actions,omitempty"`
 }
 
 // Read retrieves the incidents resource

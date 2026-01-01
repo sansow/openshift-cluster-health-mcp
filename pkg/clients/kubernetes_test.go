@@ -118,3 +118,184 @@ func TestK8sClient_GetClusterHealth(t *testing.T) {
 	t.Logf("  Pods: %d total, %d running, %d pending, %d failed",
 		health.Pods.Total, health.Pods.Running, health.Pods.Pending, health.Pods.Failed)
 }
+
+func TestK8sClient_GetNode(t *testing.T) {
+	client, err := NewK8sClient(nil)
+	if err != nil {
+		t.Skipf("Skipping: unable to create Kubernetes client: %v", err)
+	}
+	defer client.Close()
+
+	ctx := context.Background()
+
+	// First list nodes to get a valid node name
+	nodes, err := client.ListNodes(ctx)
+	if err != nil {
+		t.Fatalf("ListNodes() failed: %v", err)
+	}
+	if len(nodes.Items) == 0 {
+		t.Skip("No nodes available to test GetNode()")
+	}
+
+	nodeName := nodes.Items[0].Name
+	node, err := client.GetNode(ctx, nodeName)
+	if err != nil {
+		t.Errorf("GetNode() failed: %v", err)
+	}
+	if node == nil {
+		t.Error("GetNode() returned nil")
+	}
+	if node != nil && node.Name != nodeName {
+		t.Errorf("GetNode() returned wrong node: got %s, want %s", node.Name, nodeName)
+	}
+	t.Logf("Retrieved node: %s", nodeName)
+}
+
+func TestK8sClient_ListPods(t *testing.T) {
+	client, err := NewK8sClient(nil)
+	if err != nil {
+		t.Skipf("Skipping: unable to create Kubernetes client: %v", err)
+	}
+	defer client.Close()
+
+	ctx := context.Background()
+
+	tests := []struct {
+		name      string
+		namespace string
+	}{
+		{
+			name:      "all namespaces",
+			namespace: "",
+		},
+		{
+			name:      "kube-system namespace",
+			namespace: "kube-system",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			pods, err := client.ListPods(ctx, tt.namespace)
+			if err != nil {
+				t.Errorf("ListPods() failed: %v", err)
+			}
+			t.Logf("Found %d pods in namespace '%s'", len(pods.Items), tt.namespace)
+		})
+	}
+}
+
+func TestK8sClient_GetPod(t *testing.T) {
+	client, err := NewK8sClient(nil)
+	if err != nil {
+		t.Skipf("Skipping: unable to create Kubernetes client: %v", err)
+	}
+	defer client.Close()
+
+	ctx := context.Background()
+
+	// List pods in kube-system to find a pod
+	pods, err := client.ListPods(ctx, "kube-system")
+	if err != nil {
+		t.Fatalf("ListPods() failed: %v", err)
+	}
+	if len(pods.Items) == 0 {
+		t.Skip("No pods available in kube-system to test GetPod()")
+	}
+
+	podName := pods.Items[0].Name
+	namespace := pods.Items[0].Namespace
+
+	pod, err := client.GetPod(ctx, namespace, podName)
+	if err != nil {
+		t.Errorf("GetPod() failed: %v", err)
+	}
+	if pod == nil {
+		t.Error("GetPod() returned nil")
+	}
+	if pod != nil && pod.Name != podName {
+		t.Errorf("GetPod() returned wrong pod: got %s, want %s", pod.Name, podName)
+	}
+	t.Logf("Retrieved pod: %s/%s", namespace, podName)
+}
+
+func TestK8sClient_ListNamespaces(t *testing.T) {
+	client, err := NewK8sClient(nil)
+	if err != nil {
+		t.Skipf("Skipping: unable to create Kubernetes client: %v", err)
+	}
+	defer client.Close()
+
+	ctx := context.Background()
+	namespaces, err := client.ListNamespaces(ctx)
+	if err != nil {
+		t.Errorf("ListNamespaces() failed: %v", err)
+	}
+	if len(namespaces.Items) == 0 {
+		t.Error("ListNamespaces() returned no namespaces")
+	}
+	t.Logf("Found %d namespaces", len(namespaces.Items))
+}
+
+func TestK8sClient_ListEvents(t *testing.T) {
+	client, err := NewK8sClient(nil)
+	if err != nil {
+		t.Skipf("Skipping: unable to create Kubernetes client: %v", err)
+	}
+	defer client.Close()
+
+	ctx := context.Background()
+
+	tests := []struct {
+		name      string
+		namespace string
+	}{
+		{
+			name:      "all namespaces",
+			namespace: "",
+		},
+		{
+			name:      "kube-system namespace",
+			namespace: "kube-system",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			events, err := client.ListEvents(ctx, tt.namespace)
+			if err != nil {
+				t.Errorf("ListEvents() failed: %v", err)
+			}
+			t.Logf("Found %d events in namespace '%s'", len(events.Items), tt.namespace)
+		})
+	}
+}
+
+func TestK8sClient_Clientset(t *testing.T) {
+	client, err := NewK8sClient(nil)
+	if err != nil {
+		t.Skipf("Skipping: unable to create Kubernetes client: %v", err)
+	}
+	defer client.Close()
+
+	clientset := client.Clientset()
+	if clientset == nil {
+		t.Error("Clientset() returned nil")
+	}
+}
+
+func TestK8sClient_GetConfig(t *testing.T) {
+	client, err := NewK8sClient(nil)
+	if err != nil {
+		t.Skipf("Skipping: unable to create Kubernetes client: %v", err)
+	}
+	defer client.Close()
+
+	config := client.GetConfig()
+	if config == nil {
+		t.Error("GetConfig() returned nil")
+	}
+	if config != nil {
+		t.Logf("Config host: %s", config.Host)
+	}
+}

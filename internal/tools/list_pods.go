@@ -74,18 +74,18 @@ type ListPodsInput struct {
 
 // PodInfo represents simplified pod information
 type PodInfo struct {
-	Name         string            `json:"name"`
-	Namespace    string            `json:"namespace"`
-	Status       string            `json:"status"`
-	Phase        string            `json:"phase"`
-	Restarts     int32             `json:"restarts"`
-	Ready        string            `json:"ready"`        // "2/2" format
-	Age          string            `json:"age"`          // Human-readable
-	Node         string            `json:"node"`
-	IP           string            `json:"ip"`
-	Labels       map[string]string `json:"labels,omitempty"`
-	Containers   []ContainerInfo   `json:"containers"`
-	CreatedAt    time.Time         `json:"created_at"`
+	Name       string            `json:"name"`
+	Namespace  string            `json:"namespace"`
+	Status     string            `json:"status"`
+	Phase      string            `json:"phase"`
+	Restarts   int32             `json:"restarts"`
+	Ready      string            `json:"ready"` // "2/2" format
+	Age        string            `json:"age"`   // Human-readable
+	Node       string            `json:"node"`
+	IP         string            `json:"ip"`
+	Labels     map[string]string `json:"labels,omitempty"`
+	Containers []ContainerInfo   `json:"containers"`
+	CreatedAt  time.Time         `json:"created_at"`
 }
 
 // ContainerInfo represents container information
@@ -125,7 +125,7 @@ func (t *ListPodsTool) Execute(ctx context.Context, args map[string]interface{})
 	}
 
 	if argsJSON, err := json.Marshal(args); err == nil {
-		json.Unmarshal(argsJSON, &input)
+		_ = json.Unmarshal(argsJSON, &input) // Ignore error, use defaults if unmarshal fails
 	}
 
 	// Build list options

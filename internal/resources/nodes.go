@@ -48,23 +48,23 @@ func (r *NodesResource) MimeType() string {
 
 // NodesData represents the nodes resource data
 type NodesData struct {
-	Timestamp string     `json:"timestamp"`
-	TotalNodes int       `json:"total_nodes"`
-	ReadyNodes int       `json:"ready_nodes"`
-	Nodes     []NodeInfo `json:"nodes"`
+	Timestamp  string     `json:"timestamp"`
+	TotalNodes int        `json:"total_nodes"`
+	ReadyNodes int        `json:"ready_nodes"`
+	Nodes      []NodeInfo `json:"nodes"`
 }
 
 // NodeInfo represents information about a single node
 type NodeInfo struct {
-	Name       string            `json:"name"`
-	Status     string            `json:"status"`
-	Roles      []string          `json:"roles"`
-	Version    string            `json:"version"`
-	Capacity   NodeResources     `json:"capacity"`
-	Allocatable NodeResources    `json:"allocatable"`
-	Conditions []NodeCondition   `json:"conditions,omitempty"`
-	Labels     map[string]string `json:"labels,omitempty"`
-	Age        string            `json:"age"`
+	Name        string            `json:"name"`
+	Status      string            `json:"status"`
+	Roles       []string          `json:"roles"`
+	Version     string            `json:"version"`
+	Capacity    NodeResources     `json:"capacity"`
+	Allocatable NodeResources     `json:"allocatable"`
+	Conditions  []NodeCondition   `json:"conditions,omitempty"`
+	Labels      map[string]string `json:"labels,omitempty"`
+	Age         string            `json:"age"`
 }
 
 // NodeResources represents node resource information
@@ -100,9 +100,9 @@ func (r *NodesResource) Read(ctx context.Context) (string, error) {
 
 	// Build nodes data
 	data := NodesData{
-		Timestamp: time.Now().UTC().Format(time.RFC3339),
+		Timestamp:  time.Now().UTC().Format(time.RFC3339),
 		TotalNodes: len(nodeList.Items),
-		Nodes:     make([]NodeInfo, 0, len(nodeList.Items)),
+		Nodes:      make([]NodeInfo, 0, len(nodeList.Items)),
 	}
 
 	// Process each node

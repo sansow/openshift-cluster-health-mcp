@@ -19,11 +19,11 @@ func (e *CacheEntry) IsExpired() bool {
 
 // Statistics tracks cache performance metrics
 type Statistics struct {
-	Hits       int64 `json:"hits"`
-	Misses     int64 `json:"misses"`
-	Evictions  int64 `json:"evictions"`
-	Entries    int   `json:"entries"`
-	HitRate    float64 `json:"hit_rate"`
+	Hits      int64   `json:"hits"`
+	Misses    int64   `json:"misses"`
+	Evictions int64   `json:"evictions"`
+	Entries   int     `json:"entries"`
+	HitRate   float64 `json:"hit_rate"`
 }
 
 // MemoryCache provides a thread-safe in-memory cache with TTL

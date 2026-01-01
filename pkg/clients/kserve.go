@@ -89,10 +89,10 @@ type InferenceResponse struct {
 
 // InferenceOutput represents output data from inference
 type InferenceOutput struct {
-	Name     string          `json:"name"`
-	Shape    []int           `json:"shape"`
-	Datatype string          `json:"datatype"`
-	Data     []interface{}   `json:"data"`
+	Name     string        `json:"name"`
+	Shape    []int         `json:"shape"`
+	Datatype string        `json:"datatype"`
+	Data     []interface{} `json:"data"`
 }
 
 // AnomalyDetectionRequest represents a request to detect anomalies
@@ -111,11 +111,11 @@ type MetricData struct {
 type AnomalyDetectionResult struct {
 	Anomalies []AnomalyDetection `json:"anomalies"`
 	Summary   struct {
-		TotalMetrics     int `json:"total_metrics"`
-		AnomaliesFound   int `json:"anomalies_found"`
-		HighSeverity     int `json:"high_severity"`
-		MediumSeverity   int `json:"medium_severity"`
-		LowSeverity      int `json:"low_severity"`
+		TotalMetrics   int `json:"total_metrics"`
+		AnomaliesFound int `json:"anomalies_found"`
+		HighSeverity   int `json:"high_severity"`
+		MediumSeverity int `json:"medium_severity"`
+		LowSeverity    int `json:"low_severity"`
 	} `json:"summary"`
 }
 
@@ -142,19 +142,19 @@ type PredictiveAnalyticsRequest struct {
 
 // PredictiveAnalyticsResult represents the result of predictive analytics
 type PredictiveAnalyticsResult struct {
-	Predictions []Prediction `json:"predictions"`
-	Confidence  float64      `json:"confidence"` // Overall confidence 0.0-1.0
-	Recommendations []string  `json:"recommendations"`
-	RiskLevel   string       `json:"risk_level"` // low, medium, high, critical
+	Predictions     []Prediction `json:"predictions"`
+	Confidence      float64      `json:"confidence"` // Overall confidence 0.0-1.0
+	Recommendations []string     `json:"recommendations"`
+	RiskLevel       string       `json:"risk_level"` // low, medium, high, critical
 }
 
 // Prediction represents a predicted event or value
 type Prediction struct {
-	Timestamp        string  `json:"timestamp"`
-	PredictedValue   float64 `json:"predicted_value"`
-	ConfidenceScore  float64 `json:"confidence_score"`
+	Timestamp            string  `json:"timestamp"`
+	PredictedValue       float64 `json:"predicted_value"`
+	ConfidenceScore      float64 `json:"confidence_score"`
 	ProbabilityOfFailure float64 `json:"probability_of_failure,omitempty"`
-	RecommendedAction string  `json:"recommended_action,omitempty"`
+	RecommendedAction    string  `json:"recommended_action,omitempty"`
 }
 
 // DetectAnomalies uses the anomaly-detector model to detect anomalies
@@ -353,11 +353,11 @@ func (c *KServeClient) parsePredictiveAnalyticsResponse(resp *InferenceResponse)
 			for _, data := range output.Data {
 				if predMap, ok := data.(map[string]interface{}); ok {
 					pred := Prediction{
-						Timestamp:             getString(predMap, "timestamp"),
-						PredictedValue:        getFloat64(predMap, "predicted_value"),
-						ConfidenceScore:       getFloat64(predMap, "confidence_score"),
-						ProbabilityOfFailure:  getFloat64(predMap, "probability_of_failure"),
-						RecommendedAction:     getString(predMap, "recommended_action"),
+						Timestamp:            getString(predMap, "timestamp"),
+						PredictedValue:       getFloat64(predMap, "predicted_value"),
+						ConfidenceScore:      getFloat64(predMap, "confidence_score"),
+						ProbabilityOfFailure: getFloat64(predMap, "probability_of_failure"),
+						RecommendedAction:    getString(predMap, "recommended_action"),
 					}
 					result.Predictions = append(result.Predictions, pred)
 				}
@@ -465,15 +465,15 @@ func (c *KServeClient) GetNamespace() string {
 
 // ModelStatusResponse represents the model status from KServe
 type ModelStatusResponse struct {
-	ModelName          string                 `json:"name"`
-	Ready              bool                   `json:"ready"`
-	ModelVersion       string                 `json:"version,omitempty"`
-	URL                string                 `json:"url,omitempty"`
-	Runtime            string                 `json:"runtime,omitempty"`
-	Framework          string                 `json:"framework,omitempty"`
-	Replicas           int                    `json:"replicas,omitempty"`
-	AvailableReplicas  int                    `json:"available_replicas,omitempty"`
-	LastTransitionTime string                 `json:"last_transition_time,omitempty"`
+	ModelName          string                   `json:"name"`
+	Ready              bool                     `json:"ready"`
+	ModelVersion       string                   `json:"version,omitempty"`
+	URL                string                   `json:"url,omitempty"`
+	Runtime            string                   `json:"runtime,omitempty"`
+	Framework          string                   `json:"framework,omitempty"`
+	Replicas           int                      `json:"replicas,omitempty"`
+	AvailableReplicas  int                      `json:"available_replicas,omitempty"`
+	LastTransitionTime string                   `json:"last_transition_time,omitempty"`
 	Conditions         []map[string]interface{} `json:"conditions,omitempty"`
 }
 
@@ -524,9 +524,9 @@ type PredictionRequest struct {
 
 // PredictionResponse represents a generic prediction response
 type PredictionResponse struct {
-	Predictions interface{} `json:"predictions"`
-	ModelName   string      `json:"model_name,omitempty"`
-	ModelVersion string     `json:"model_version,omitempty"`
+	Predictions  interface{} `json:"predictions"`
+	ModelName    string      `json:"model_name,omitempty"`
+	ModelVersion string      `json:"model_version,omitempty"`
 }
 
 // Predict makes a generic prediction call to a KServe model
