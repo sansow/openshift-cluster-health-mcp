@@ -70,7 +70,7 @@ func (t *ClusterHealthTool) Execute(ctx context.Context, args map[string]interfa
 	}
 
 	if argsJSON, err := json.Marshal(args); err == nil {
-		_ = json.Unmarshal(argsJSON, &input) // Ignore error, use defaults if unmarshal fails
+		_ = json.Unmarshal(argsJSON, &input) //nolint:errcheck // Intentionally ignore error, use defaults if unmarshal fails
 	}
 
 	// Cache key based on detail level

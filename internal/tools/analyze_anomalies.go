@@ -111,7 +111,7 @@ func (t *AnalyzeAnomaliesTool) Execute(ctx context.Context, args map[string]inte
 	}
 
 	if argsJSON, err := json.Marshal(args); err == nil {
-		_ = json.Unmarshal(argsJSON, &input) // Ignore error, use defaults if unmarshal fails
+		_ = json.Unmarshal(argsJSON, &input) //nolint:errcheck // Intentionally ignore error, use defaults if unmarshal fails
 	}
 
 	// Validate required fields
