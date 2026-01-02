@@ -1,10 +1,10 @@
 name: CI
 
-on:
+'on':
   push:
-    branches: [ main ]
+    branches: [main]
   pull_request:
-    branches: [ main ]
+    branches: [main]
 
 jobs:
   test:
@@ -14,130 +14,132 @@ jobs:
       OPENSHIFT_SERVER: ${{ secrets.OPENSHIFT_SERVER }}
       OPENSHIFT_TOKEN: ${{ secrets.OPENSHIFT_TOKEN }}
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Set up Go
-      uses: actions/setup-go@v5
-      with:
-        go-version: '1.24'
-        cache: true
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+          cache: true
 
-    - name: Download dependencies
-      run: go mod download
+      - name: Download dependencies
+        run: go mod download
 
-    - name: Set up OpenShift kubeconfig (Optional)
-      if: env.OPENSHIFT_SERVER != '' && env.OPENSHIFT_TOKEN != ''
-      run: |
-        echo "Setting up OpenShift kubeconfig from secrets..."
-        mkdir -p ~/.kube
-        cat > ~/.kube/config <<EOF
-        apiVersion: v1
-        kind: Config
-        clusters:
-        - cluster:
-            insecure-skip-tls-verify: true
-            server: ${{ env.OPENSHIFT_SERVER }}
-          name: openshift-cluster
-        contexts:
-        - context:
-            cluster: openshift-cluster
-            namespace: default
-            user: openshift-user
-          name: openshift-context
-        current-context: openshift-context
-        users:
-        - name: openshift-user
-          user:
-            token: ${{ env.OPENSHIFT_TOKEN }}
-        EOF
-        chmod 600 ~/.kube/config
-        echo "KUBECONFIG=$HOME/.kube/config" >> $GITHUB_ENV
-        echo "✓ OpenShift kubeconfig configured"
+      - name: Set up OpenShift kubeconfig (Optional)
+        if: env.OPENSHIFT_SERVER != '' && env.OPENSHIFT_TOKEN != ''
+        run: |
+          echo "Setting up OpenShift kubeconfig from secrets..."
+          mkdir -p ~/.kube
+          cat > ~/.kube/config <<EOF
+          apiVersion: v1
+          kind: Config
+          clusters:
+          - cluster:
+              insecure-skip-tls-verify: true
+              server: ${{ env.OPENSHIFT_SERVER }}
+            name: openshift-cluster
+          contexts:
+          - context:
+              cluster: openshift-cluster
+              namespace: default
+              user: openshift-user
+            name: openshift-context
+          current-context: openshift-context
+          users:
+          - name: openshift-user
+            user:
+              token: ${{ env.OPENSHIFT_TOKEN }}
+          EOF
+          chmod 600 ~/.kube/config
+          echo "KUBECONFIG=$HOME/.kube/config" >> $GITHUB_ENV
+          echo "✓ OpenShift kubeconfig configured"
 
-    - name: Verify OpenShift connectivity (Optional)
-      if: env.OPENSHIFT_SERVER != '' && env.OPENSHIFT_TOKEN != ''
-      run: |
-        # Install kubectl
-        echo "Installing kubectl..."
-        curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
-        chmod +x kubectl
-        sudo mv kubectl /usr/local/bin/
+      - name: Verify OpenShift connectivity (Optional)
+        if: env.OPENSHIFT_SERVER != '' && env.OPENSHIFT_TOKEN != ''
+        run: |
+          # Install kubectl
+          echo "Installing kubectl..."
+          KUBECTL_VERSION=$(curl -L -s https://dl.k8s.io/release/stable.txt)
+          curl -LO "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/amd64/kubectl"
+          chmod +x kubectl
+          sudo mv kubectl /usr/local/bin/
 
-        # Test connection
-        echo "Testing OpenShift cluster connectivity..."
-        if kubectl version --short; then
-          echo "✓ Connected to OpenShift cluster"
-          kubectl get nodes && echo "✓ Cluster is accessible" || echo "⚠ Could not list nodes"
-        else
-          echo "⚠ Could not connect to OpenShift cluster"
-        fi
+          # Test connection
+          echo "Testing OpenShift cluster connectivity..."
+          if kubectl version --short 2>/dev/null; then
+            echo "✓ Connected to OpenShift cluster"
+            kubectl get nodes && echo "✓ Cluster is accessible" || echo "⚠ Could not list nodes"
+          else
+            echo "⚠ Could not connect to OpenShift cluster - tests will run without cluster access"
+            exit 0
+          fi
 
-    - name: Run tests
-      run: |
-        if [ -f "$HOME/.kube/config" ]; then
-          echo "Running tests WITH OpenShift cluster access..."
-          go test -v -race -coverprofile=coverage.out ./...
-        else
-          echo "Running tests WITHOUT cluster access (unit tests only)..."
-          echo "Note: Integration tests requiring cluster access will be skipped"
-          go test -v -race -coverprofile=coverage.out ./...
-        fi
-      env:
-        KUBECONFIG: ${{ env.KUBECONFIG || '' }}
+      - name: Run tests
+        run: |
+          if [ -f "$HOME/.kube/config" ]; then
+            echo "Running tests WITH OpenShift cluster access..."
+            go test -v -race -coverprofile=coverage.out ./...
+          else
+            echo "Running tests WITHOUT cluster access (unit tests only)..."
+            echo "Note: Integration tests requiring cluster access will be skipped"
+            go test -v -race -coverprofile=coverage.out ./...
+          fi
+        env:
+          KUBECONFIG: ${{ env.KUBECONFIG || '' }}
 
-    - name: Upload coverage
-      uses: codecov/codecov-action@v4
-      with:
-        files: ./coverage.out
-        flags: unittests
-        fail_ci_if_error: false
+      - name: Upload coverage
+        uses: codecov/codecov-action@v4
+        with:
+          files: ./coverage.out
+          flags: unittests
+          fail_ci_if_error: false
 
   lint:
     name: Lint
     runs-on: ubuntu-latest
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Set up Go
-      uses: actions/setup-go@v5
-      with:
-        go-version: '1.24'
-        cache: true
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+          cache: true
 
-    - name: golangci-lint
-      uses: golangci/golangci-lint-action@v4
-      with:
-        version: latest
-        args: --timeout=5m
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v4
+        with:
+          version: latest
+          args: --timeout=5m
 
   build:
     name: Build
     runs-on: ubuntu-latest
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Set up Go
-      uses: actions/setup-go@v5
-      with:
-        go-version: '1.24'
-        cache: true
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+          cache: true
 
-    - name: Build binary
-      run: |
-        CGO_ENABLED=0 go build -ldflags="-s -w" -trimpath -o bin/mcp-server ./cmd/mcp-server
-        ls -lh bin/mcp-server
+      - name: Build binary
+        run: |
+          CGO_ENABLED=0 go build -ldflags="-s -w" -trimpath -o bin/mcp-server ./cmd/mcp-server
+          ls -lh bin/mcp-server
 
-    - name: Verify binary size
-      run: |
-        SIZE=$(stat -f%z bin/mcp-server 2>/dev/null || stat -c%s bin/mcp-server)
-        echo "Binary size: $SIZE bytes"
-        if [ $SIZE -gt 52428800 ]; then
-          echo "Binary size exceeds 50MB limit"
-          exit 1
-        fi
+      - name: Verify binary size
+        run: |
+          SIZE=$(stat -f%z bin/mcp-server 2>/dev/null || stat -c%s bin/mcp-server)
+          echo "Binary size: $SIZE bytes"
+          if [ $SIZE -gt 52428800 ]; then
+            echo "Binary size exceeds 50MB limit"
+            exit 1
+          fi
 
   security:
     name: Security Scan
@@ -146,33 +148,33 @@ jobs:
       security-events: write
       contents: read
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Run Trivy vulnerability scanner
-      uses: aquasecurity/trivy-action@master
-      with:
-        scan-type: 'fs'
-        scan-ref: '.'
-        format: 'sarif'
-        output: 'trivy-results.sarif'
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
 
-    - name: Upload Trivy results to GitHub Security
-      uses: github/codeql-action/upload-sarif@v4
-      with:
-        sarif_file: 'trivy-results.sarif'
+      - name: Upload Trivy results to GitHub Security
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: 'trivy-results.sarif'
 
   helm:
     name: Helm Lint
     runs-on: ubuntu-latest
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Set up Helm
-      uses: azure/setup-helm@v4
-      with:
-        version: 'latest'
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: 'latest'
 
-    - name: Lint Helm chart
-      run: helm lint charts/openshift-cluster-health-mcp
+      - name: Lint Helm chart
+        run: helm lint charts/openshift-cluster-health-mcp
