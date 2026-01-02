@@ -111,22 +111,39 @@ jobs:
       IMAGE_NAMESPACE: takinosh
       IMAGE_NAME: openshift-cluster-health-mcp
     steps:
-      - name: Test container runs
+      - name: Set up kind
+        uses: helm/kind-action@v1
+        with:
+          cluster_name: mcp-test-cluster
+          wait: 60s
+
+      - name: Verify kind cluster
+        run: |
+          kubectl cluster-info
+          kubectl get nodes
+          echo "✓ Kind cluster is ready"
+
+      - name: Test container with cluster access
         run: |
           docker pull ${{ env.IMAGE_REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/${{ env.IMAGE_NAME }}:latest
 
-          # Start container in background
+          # Get kubeconfig path
+          KUBECONFIG_PATH="${HOME}/.kube/config"
+
+          # Start container in background with kubeconfig mounted
           docker run -d --name mcp-test \
-            -p 8080:8080 \
+            --network=host \
+            -v ${KUBECONFIG_PATH}:/root/.kube/config:ro \
             -e MCP_TRANSPORT=http \
             ${{ env.IMAGE_REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/${{ env.IMAGE_NAME }}:latest
 
           # Wait for container to start
-          sleep 5
+          sleep 10
 
           # Check if container is running
           if docker ps | grep -q mcp-test; then
             echo "✓ Container is running"
+            docker logs mcp-test
           else
             echo "✗ Container failed to start"
             docker logs mcp-test
@@ -134,12 +151,13 @@ jobs:
           fi
 
           # Test health endpoint
-          if curl -f http://localhost:8080/health; then
+          if curl -f http://localhost:8080/health 2>/dev/null; then
             echo "✓ Health endpoint responding"
           else
-            echo "⚠️  Health endpoint not responding (this may be expected without cluster access)"
+            echo "⚠️  Health endpoint not responding (may require additional setup)"
+            # Don't fail on health endpoint - just log it
           fi
 
           # Cleanup
-          docker stop mcp-test
-          docker rm mcp-test
+          docker stop mcp-test || true
+          docker rm mcp-test || true
