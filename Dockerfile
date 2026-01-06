@@ -3,7 +3,7 @@
 # Target: Container image <50MB
 
 # Stage 1: Build stage (Alpine Go 1.24 for build, UBI Micro for runtime)
-FROM docker.io/library/golang:1.24-alpine AS builder
+FROM docker.io/library/golang:1.25-alpine AS builder
 
 WORKDIR /build
 
