@@ -38,7 +38,7 @@ jobs:
       packages: write
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           # When triggered by workflow_run, checkout the commit that triggered CI
           ref: ${{ github.event.workflow_run.head_sha || github.sha }}
