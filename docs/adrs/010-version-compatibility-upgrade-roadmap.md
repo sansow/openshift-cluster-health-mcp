@@ -2,7 +2,11 @@
 
 ## Status
 
-**ACCEPTED** - 2025-12-09
+**AMENDED** - 2026-01-06
+
+**Original**: ACCEPTED - 2025-12-09
+
+**Amendment**: Changed from single-branch N-2 compatibility strategy to multi-branch approach with dedicated branches for each OpenShift version (main=4.18, release/4.19, release/4.20). This provides cleaner dependency management for Kubernetes client libraries.
 
 ## Context
 
@@ -63,21 +67,193 @@ The OpenShift Cluster Health MCP Server must be compatible with the current Open
 
 ## Decision
 
-We will adopt a **phased version compatibility strategy**:
+We will adopt a **multi-branch version strategy** to manage compatibility with different OpenShift versions:
 
-1. **Phase 1 (Current)**: Target OpenShift 4.18+ and Kubernetes 1.31+
-2. **Phase 2 (6 months)**: Upgrade to OpenShift 4.19 and Kubernetes 1.32
-3. **Phase 3 (12 months)**: Upgrade to OpenShift 4.20+ and maintain N-2 compatibility
+### Branch Strategy
+
+**Rationale**: Kubernetes client-go libraries have strict version coupling with K8s API versions. Using separate branches allows:
+- Clean dependency management per OpenShift version
+- Targeted Dependabot updates per branch
+- Clear separation of concerns for each OpenShift release
+- Easier testing and validation per version
+
+**Branch Structure**:
+
+| Branch | OpenShift Version | Kubernetes Version | client-go Version | Status |
+|--------|------------------|-------------------|------------------|--------|
+| **main** | 4.18.x | v1.31.x | v0.31.x | **Active Development** ✅ |
+| **release/4.19** | 4.19.x | v1.32.x | v0.32.x | Future (Q1-Q2 2026) |
+| **release/4.20** | 4.20.x | v1.33.x | v0.33.x | Future (Q3-Q4 2026) |
+
+**Branch Lifecycle**:
+```
+main (4.18) ──────────┐
+                      ├─→ release/4.19 ──────────┐
+                      │                          ├─→ release/4.20
+                      │                          │
+Active Development    Future Branch              Future Branch
+```
 
 ### Compatibility Matrix
 
-| MCP Server Version | Min OpenShift | Min Kubernetes | Max OpenShift | Go Version | client-go |
-|-------------------|---------------|----------------|---------------|------------|-----------|
-| **0.1.x (Current)** | 4.18 | 1.31 | 4.19 | 1.21+ | v0.31.x |
-| **0.2.x (6 months)** | 4.19 | 1.32 | 4.20 | 1.22+ | v0.32.x |
-| **1.0.x (12 months)** | 4.20 | 1.33 | 4.21+ | 1.23+ | v0.33.x |
+| Branch | Min OpenShift | Kubernetes | Go Version | client-go | k8s.io/api | k8s.io/apimachinery |
+|--------|---------------|------------|------------|-----------|------------|---------------------|
+| **main** | 4.18.21+ | v1.31.10+ | 1.24+ | v0.31.x | v0.31.x | v0.31.x |
+| **release/4.19** | 4.19.0+ | v1.32.x | 1.24+ | v0.32.x | v0.32.x | v0.32.x |
+| **release/4.20** | 4.20.0+ | v1.33.x | 1.24+ | v0.33.x | v0.33.x | v0.33.x |
 
-**Compatibility Policy**: Support N-2 OpenShift versions (current and previous 2 minor versions)
+**Compatibility Policy**:
+- Each branch targets a specific OpenShift major.minor version
+- Patch updates (4.18.21 → 4.18.22) happen within the same branch
+- Minor upgrades (4.18 → 4.19) require branch migration
+
+### Dependabot Configuration
+
+Configure Dependabot to target each branch with appropriate version constraints:
+
+```yaml
+# .github/dependabot.yml
+version: 2
+updates:
+  # Main branch - OpenShift 4.18 (Kubernetes 1.31)
+  - package-ecosystem: "gomod"
+    directory: "/"
+    target-branch: "main"
+    schedule:
+      interval: "weekly"
+    ignore:
+      # Pin k8s.io dependencies to v0.31.x for OpenShift 4.18
+      - dependency-name: "k8s.io/api"
+        update-types: ["version-update:semver-minor"]
+        versions: [">= 0.32.0"]
+      - dependency-name: "k8s.io/apimachinery"
+        update-types: ["version-update:semver-minor"]
+        versions: [">= 0.32.0"]
+      - dependency-name: "k8s.io/client-go"
+        update-types: ["version-update:semver-minor"]
+        versions: [">= 0.32.0"]
+    labels:
+      - "dependencies"
+      - "openshift-4.18"
+
+  # Release/4.19 branch - OpenShift 4.19 (Kubernetes 1.32)
+  - package-ecosystem: "gomod"
+    directory: "/"
+    target-branch: "release/4.19"
+    schedule:
+      interval: "weekly"
+    ignore:
+      # Pin k8s.io dependencies to v0.32.x for OpenShift 4.19
+      - dependency-name: "k8s.io/api"
+        update-types: ["version-update:semver-minor"]
+        versions: [">= 0.33.0"]
+      - dependency-name: "k8s.io/apimachinery"
+        update-types: ["version-update:semver-minor"]
+        versions: [">= 0.33.0"]
+      - dependency-name: "k8s.io/client-go"
+        update-types: ["version-update:semver-minor"]
+        versions: [">= 0.33.0"]
+    labels:
+      - "dependencies"
+      - "openshift-4.19"
+
+  # Release/4.20 branch - OpenShift 4.20 (Kubernetes 1.33)
+  - package-ecosystem: "gomod"
+    directory: "/"
+    target-branch: "release/4.20"
+    schedule:
+      interval: "weekly"
+    ignore:
+      # Pin k8s.io dependencies to v0.33.x for OpenShift 4.20
+      - dependency-name: "k8s.io/api"
+        update-types: ["version-update:semver-minor"]
+        versions: [">= 0.34.0"]
+      - dependency-name: "k8s.io/apimachinery"
+        update-types: ["version-update:semver-minor"]
+        versions: [">= 0.34.0"]
+      - dependency-name: "k8s.io/client-go"
+        update-types: ["version-update:semver-minor"]
+        versions: [">= 0.34.0"]
+    labels:
+      - "dependencies"
+      - "openshift-4.20"
+
+  # GitHub Actions (applies to all branches)
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    labels:
+      - "dependencies"
+      - "github-actions"
+
+  # Docker (applies to all branches)
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    labels:
+      - "dependencies"
+      - "docker"
+```
+
+### Branch Migration Workflow
+
+**When upgrading from 4.18 → 4.19**:
+
+```bash
+# 1. Create release/4.19 branch from main
+git checkout main
+git pull origin main
+git checkout -b release/4.19
+
+# 2. Update K8s dependencies to v0.32.x
+go get k8s.io/api@v0.32.0
+go get k8s.io/apimachinery@v0.32.0
+go get k8s.io/client-go@v0.32.0
+go mod tidy
+
+# 3. Update documentation
+sed -i 's/OpenShift 4.18/OpenShift 4.19/g' README.md
+sed -i 's/Kubernetes 1.31/Kubernetes 1.32/g' README.md
+
+# 4. Test compatibility
+make build
+make test
+make test-integration
+
+# 5. Push branch
+git add .
+git commit -m "feat: create release/4.19 branch for OpenShift 4.19 support
+
+- Update k8s.io dependencies to v0.32.x for Kubernetes 1.32
+- Update documentation for OpenShift 4.19
+- Verify all tests pass"
+
+git push origin release/4.19
+
+# 6. Update main branch to continue 4.18 development
+git checkout main
+# main remains on k8s.io/* v0.31.x
+```
+
+**Feature Backporting**:
+- Security fixes: Backport to all active branches
+- Bug fixes: Backport to current and previous release
+- New features: Only in latest branch (main or newest release branch)
+
+**Example Backport**:
+```bash
+# Fix merged in release/4.19
+git checkout release/4.19
+git pull origin release/4.19
+
+# Cherry-pick to main (4.18)
+git checkout main
+git cherry-pick <commit-sha>
+# Resolve conflicts if any (especially in go.mod)
+git push origin main
+```
 
 ## Upgrade Roadmap
 
