@@ -48,11 +48,21 @@ Model Context Protocol (MCP) server for OpenShift cluster health monitoring and 
 └─────────────┘ └──────────┘ └─────────────┘ └─────────────┘
 ```
 
+## Version Compatibility
+
+| OpenShift Version | Kubernetes Version | Container Image | Status |
+|-------------------|-------------------|-----------------|--------|
+| **4.18** | 1.31 | `quay.io/takinosh/openshift-cluster-health-mcp:4.18-latest` | ✅ Supported |
+| **4.19** | 1.31 | `quay.io/takinosh/openshift-cluster-health-mcp:4.19-latest` | ✅ Supported |
+| **4.20** | 1.33 | `quay.io/takinosh/openshift-cluster-health-mcp:4.20-latest` | ✅ Supported |
+
+**📚 [Complete Installation Guide](./docs/INSTALLATION.md)** - Detailed instructions for installing the MCP server for each OpenShift version.
+
 ## Quick Start
 
 ### Prerequisites
 
-- OpenShift 4.14+
+- OpenShift 4.18+ (see version compatibility table above)
 - Go 1.24+ (for local development)
 - Helm 3.0+
 - kubectl/oc CLI
@@ -82,21 +92,38 @@ curl http://localhost:8080/health
 
 ### Deploy to OpenShift
 
+**Option 1: Use Pre-built Container Images (Recommended)**
+
+```bash
+# Determine your OpenShift version
+oc version
+
+# Install with Helm using the matching image tag
+helm install cluster-health-mcp ./charts/openshift-cluster-health-mcp \
+  --namespace cluster-health-mcp \
+  --create-namespace \
+  --set image.repository=quay.io/takinosh/openshift-cluster-health-mcp \
+  --set image.tag=4.20-latest  # Use 4.18-latest, 4.19-latest, or 4.20-latest
+
+# Verify deployment
+oc get pods -n cluster-health-mcp
+oc logs -l app.kubernetes.io/name=openshift-cluster-health-mcp -n cluster-health-mcp
+```
+
+**Option 2: Build from Source**
+
 ```bash
 # Build container image
-make build-prod
+make docker-build
 oc new-build --name cluster-health-mcp --binary --strategy docker -n <namespace>
 oc start-build cluster-health-mcp --from-dir=. --follow -n <namespace>
 
 # Deploy with Helm
 helm install cluster-health-mcp ./charts/openshift-cluster-health-mcp \
-  --namespace <namespace> \
-  --values values-dev.yaml
-
-# Verify deployment
-oc get pods -l app.kubernetes.io/name=openshift-cluster-health-mcp -n <namespace>
-oc logs -l app.kubernetes.io/name=openshift-cluster-health-mcp -n <namespace>
+  --namespace <namespace>
 ```
+
+**📖 For detailed installation instructions, version-specific configurations, and troubleshooting, see the [Installation Guide](./docs/INSTALLATION.md).**
 
 ## Configuration
 
