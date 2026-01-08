@@ -25,9 +25,9 @@ type MCPServer struct {
 	ceClient       *clients.CoordinationEngineClient
 	kserve         *clients.KServeClient
 	cache          *cache.MemoryCache
-	sessionManager *SessionManager                    // Session manager for REST API clients
-	tools          map[string]interface{}             // Registry of available tools
-	resources      map[string]interface{}             // Registry of available resources
+	sessionManager *SessionManager          // Session manager for REST API clients
+	tools          map[string]Tool          // Registry of available tools (typed for type safety)
+	resources      map[string]interface{}   // Registry of available resources
 }
 
 // NewMCPServer creates a new MCP server instance
@@ -100,7 +100,7 @@ func NewMCPServer(config *Config) (*MCPServer, error) {
 		kserve:         kserveClient,
 		cache:          memoryCache,
 		sessionManager: sessionManager,
-		tools:          make(map[string]interface{}),
+		tools:          make(map[string]Tool),
 		resources:      make(map[string]interface{}),
 	}
 
@@ -235,7 +235,7 @@ func (s *MCPServer) registerResources() error {
 }
 
 // GetTools returns all registered tools
-func (s *MCPServer) GetTools() map[string]interface{} {
+func (s *MCPServer) GetTools() map[string]Tool {
 	return s.tools
 }
 
@@ -427,15 +427,13 @@ func (s *MCPServer) handleListTools(w http.ResponseWriter, r *http.Request) {
 	}
 
 	toolsList := []ToolInfo{}
-	for _, toolInterface := range s.tools {
-		// Use the Tool interface to get info generically
-		if t, ok := toolInterface.(Tool); ok {
-			toolsList = append(toolsList, ToolInfo{
-				Name:        t.Name(),
-				Description: t.Description(),
-				InputSchema: t.InputSchema(),
-			})
-		}
+	for _, tool := range s.tools {
+		// No type assertion needed - tools map is now typed as map[string]Tool
+		toolsList = append(toolsList, ToolInfo{
+			Name:        tool.Name(),
+			Description: tool.Description(),
+			InputSchema: tool.InputSchema(),
+		})
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -812,8 +810,8 @@ func (s *MCPServer) handleToolCall(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Get the tool
-	toolInterface, exists := s.tools[toolName]
+	// Get the tool - no type assertion needed since tools map is now typed as map[string]Tool
+	tool, exists := s.tools[toolName]
 	if !exists {
 		writeJSONError(w, http.StatusNotFound, fmt.Sprintf("tool '%s' not found", toolName))
 		return
@@ -834,13 +832,6 @@ func (s *MCPServer) handleToolCall(w http.ResponseWriter, r *http.Request) {
 		}
 	} else {
 		args = make(map[string]interface{})
-	}
-
-	// Execute the tool using the Tool interface
-	tool, ok := toolInterface.(Tool)
-	if !ok {
-		writeJSONError(w, http.StatusInternalServerError, "tool does not implement expected interface")
-		return
 	}
 
 	ctx := r.Context()

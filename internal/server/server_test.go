@@ -38,7 +38,7 @@ func setupTestServer(t *testing.T) *MCPServer {
 		mcpServer: mcpServer,
 		k8sClient: k8sClient,
 		cache:     memoryCache,
-		tools:     make(map[string]interface{}),
+		tools:     make(map[string]Tool),
 		resources: make(map[string]interface{}),
 	}
 
@@ -260,6 +260,70 @@ func TestHandleListTools(t *testing.T) {
 	count := int(result["count"].(float64))
 	if count != 2 {
 		t.Errorf("Expected count 2, got %d", count)
+	}
+}
+
+// TestHandleListTools_CountMatchesRegistered verifies that the API response
+// returns the exact same number of tools as registered in the internal map.
+// This test ensures no tool is lost during API serialization (Issue #21).
+func TestHandleListTools_CountMatchesRegistered(t *testing.T) {
+	server := setupTestServer(t)
+	defer func() {
+		if err := server.k8sClient.Close(); err != nil {
+			t.Logf("Error closing k8s client: %v", err)
+		}
+	}()
+	defer server.cache.Close()
+
+	// Get the number of registered tools from the internal map
+	registeredCount := len(server.tools)
+
+	// Make API request
+	req := httptest.NewRequest(http.MethodGet, "/mcp/tools", nil)
+	w := httptest.NewRecorder()
+
+	server.handleListTools(w, req)
+
+	resp := w.Result()
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("Expected status 200, got %d", resp.StatusCode)
+	}
+
+	var result map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		t.Fatalf("Failed to decode response: %v", err)
+	}
+
+	tools, ok := result["tools"].([]interface{})
+	if !ok {
+		t.Fatal("Expected tools array in response")
+	}
+
+	// Verify count field matches tools array length
+	count := int(result["count"].(float64))
+	if count != len(tools) {
+		t.Errorf("Count field (%d) does not match tools array length (%d)", count, len(tools))
+	}
+
+	// Verify API response matches registered tools count
+	if len(tools) != registeredCount {
+		t.Errorf("API returned %d tools, but %d tools are registered. Missing tools in API response!", len(tools), registeredCount)
+	}
+
+	// Verify all registered tool names appear in the API response
+	toolNames := make(map[string]bool)
+	for _, toolInterface := range tools {
+		tool := toolInterface.(map[string]interface{})
+		name := tool["name"].(string)
+		toolNames[name] = true
+	}
+
+	for name := range server.tools {
+		if !toolNames[name] {
+			t.Errorf("Registered tool '%s' not found in API response!", name)
+		}
 	}
 }
 

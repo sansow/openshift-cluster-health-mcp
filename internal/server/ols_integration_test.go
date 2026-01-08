@@ -267,7 +267,7 @@ func setupOLSBenchServer(b *testing.B) *MCPServer {
 		mcpServer: mcpServer,
 		k8sClient: k8sClient,
 		cache:     memoryCache,
-		tools:     make(map[string]interface{}),
+		tools:     make(map[string]Tool),
 		resources: make(map[string]interface{}),
 	}
 
