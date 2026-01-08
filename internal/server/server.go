@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strings"
+	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/openshift-aiops/openshift-cluster-health-mcp/internal/resources"
@@ -16,15 +18,16 @@ import (
 
 // MCPServer wraps the official MCP SDK server
 type MCPServer struct {
-	config     *Config
-	mcpServer  *mcp.Server
-	httpServer *http.Server
-	k8sClient  *clients.K8sClient
-	ceClient   *clients.CoordinationEngineClient
-	kserve     *clients.KServeClient
-	cache      *cache.MemoryCache
-	tools      map[string]interface{} // Registry of available tools
-	resources  map[string]interface{} // Registry of available resources
+	config         *Config
+	mcpServer      *mcp.Server
+	httpServer     *http.Server
+	k8sClient      *clients.K8sClient
+	ceClient       *clients.CoordinationEngineClient
+	kserve         *clients.KServeClient
+	cache          *cache.MemoryCache
+	sessionManager *SessionManager                    // Session manager for REST API clients
+	tools          map[string]interface{}             // Registry of available tools
+	resources      map[string]interface{}             // Registry of available resources
 }
 
 // NewMCPServer creates a new MCP server instance
@@ -84,15 +87,21 @@ func NewMCPServer(config *Config) (*MCPServer, error) {
 
 	mcpServer := mcp.NewServer(impl, nil)
 
+	// Initialize session manager for REST API clients
+	// Default TTL: 30 minutes, Max sessions: 1000
+	sessionManager := NewSessionManager(30*time.Minute, 1000)
+	log.Printf("Initialized session manager (TTL: 30m, max: 1000 sessions)")
+
 	server := &MCPServer{
-		config:    config,
-		mcpServer: mcpServer,
-		k8sClient: k8sClient,
-		ceClient:  ceClient,
-		kserve:    kserveClient,
-		cache:     memoryCache,
-		tools:     make(map[string]interface{}),
-		resources: make(map[string]interface{}),
+		config:         config,
+		mcpServer:      mcpServer,
+		k8sClient:      k8sClient,
+		ceClient:       ceClient,
+		kserve:         kserveClient,
+		cache:          memoryCache,
+		sessionManager: sessionManager,
+		tools:          make(map[string]interface{}),
+		resources:      make(map[string]interface{}),
 	}
 
 	// Register tools
@@ -264,37 +273,55 @@ func (s *MCPServer) startHTTPTransport(ctx context.Context) error {
 	// Create custom handler that routes to either MCP or health endpoints
 	mainHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Route specific endpoints to their handlers
-		switch r.URL.Path {
-		case "/health":
+		switch {
+		case r.URL.Path == "/health":
 			w.WriteHeader(http.StatusOK)
 			if _, err := fmt.Fprint(w, "OK"); err != nil {
 				log.Printf("Error writing health response: %v", err)
 			}
 			return
-		case "/ready":
+		case r.URL.Path == "/ready":
 			w.WriteHeader(http.StatusOK)
 			if _, err := fmt.Fprint(w, "READY"); err != nil {
 				log.Printf("Error writing ready response: %v", err)
 			}
 			return
-		case "/metrics":
+		case r.URL.Path == "/metrics":
 			// TODO: Implement Prometheus metrics in Phase 3
 			w.WriteHeader(http.StatusOK)
 			if _, err := fmt.Fprint(w, "# Metrics endpoint (Phase 3)\n"); err != nil {
 				log.Printf("Error writing metrics response: %v", err)
 			}
 			return
-		case "/cache/stats":
+		case r.URL.Path == "/cache/stats":
 			s.handleCacheStats(w, r)
 			return
-		case "/mcp/info":
+		case r.URL.Path == "/mcp/info":
 			s.handleMCPInfo(w, r)
 			return
-		case "/mcp/tools":
+		case r.URL.Path == "/mcp/tools":
 			s.handleListTools(w, r)
 			return
-		case "/mcp/resources":
+		case r.URL.Path == "/mcp/resources":
 			s.handleListResources(w, r)
+			return
+		// Session management endpoints (REST API)
+		case r.URL.Path == "/mcp/session":
+			s.handleSession(w, r)
+			return
+		case r.URL.Path == "/mcp/sessions/stats":
+			s.handleSessionStats(w, r)
+			return
+		case strings.HasPrefix(r.URL.Path, "/mcp/session/"):
+			s.handleSessionByID(w, r)
+			return
+		// Tool invocation endpoints (REST API with session support)
+		case strings.HasPrefix(r.URL.Path, "/mcp/tools/") && strings.HasSuffix(r.URL.Path, "/call"):
+			s.handleToolCall(w, r)
+			return
+		// Resource read endpoint (REST API with session support)
+		case strings.HasPrefix(r.URL.Path, "/mcp/resources/") && strings.HasSuffix(r.URL.Path, "/read"):
+			s.handleResourceRead(w, r)
 			return
 		default:
 			// All other paths go to MCP handler (including root "/")
@@ -369,39 +396,9 @@ func (s *MCPServer) handleListTools(w http.ResponseWriter, r *http.Request) {
 	}
 
 	toolsList := []ToolInfo{}
-	for _, tool := range s.tools {
-		switch t := tool.(type) {
-		case *tools.ClusterHealthTool:
-			toolsList = append(toolsList, ToolInfo{
-				Name:        t.Name(),
-				Description: t.Description(),
-				InputSchema: t.InputSchema(),
-			})
-		case *tools.ListPodsTool:
-			toolsList = append(toolsList, ToolInfo{
-				Name:        t.Name(),
-				Description: t.Description(),
-				InputSchema: t.InputSchema(),
-			})
-		case *tools.ListIncidentsTool:
-			toolsList = append(toolsList, ToolInfo{
-				Name:        t.Name(),
-				Description: t.Description(),
-				InputSchema: t.InputSchema(),
-			})
-		case *tools.TriggerRemediationTool:
-			toolsList = append(toolsList, ToolInfo{
-				Name:        t.Name(),
-				Description: t.Description(),
-				InputSchema: t.InputSchema(),
-			})
-		case *tools.AnalyzeAnomaliesTool:
-			toolsList = append(toolsList, ToolInfo{
-				Name:        t.Name(),
-				Description: t.Description(),
-				InputSchema: t.InputSchema(),
-			})
-		case *tools.GetModelStatusTool:
+	for _, toolInterface := range s.tools {
+		// Use the Tool interface to get info generically
+		if t, ok := toolInterface.(Tool); ok {
 			toolsList = append(toolsList, ToolInfo{
 				Name:        t.Name(),
 				Description: t.Description(),
@@ -610,9 +607,355 @@ func writeJSON(w http.ResponseWriter, data interface{}) error {
 
 // Stop gracefully shuts down the server
 func (s *MCPServer) Stop() error {
+	// Stop session manager cleanup goroutine
+	if s.sessionManager != nil {
+		s.sessionManager.Stop()
+	}
 	if s.httpServer != nil {
 		log.Println("Stopping HTTP server...")
 		return s.httpServer.Shutdown(context.Background())
 	}
 	return nil
+}
+
+// handleSession handles session creation and info
+// POST /mcp/session - Create new session
+// GET /mcp/session - Get session info (requires sessionid query param or header)
+func (s *MCPServer) handleSession(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case http.MethodPost:
+		// Create new session
+		s.handleCreateSession(w, r)
+	case http.MethodGet:
+		// Get session info (requires sessionid)
+		sessionID := s.getSessionID(r)
+		if sessionID == "" {
+			writeJSONError(w, http.StatusBadRequest, "sessionid must be provided as query parameter or X-MCP-Session-ID header")
+			return
+		}
+		info := s.sessionManager.GetSessionInfo(sessionID)
+		if info == nil {
+			writeJSONError(w, http.StatusNotFound, "session not found or expired")
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		if err := writeJSON(w, info); err != nil {
+			log.Printf("Error writing session info: %v", err)
+		}
+	default:
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+	}
+}
+
+// handleCreateSession creates a new session
+func (s *MCPServer) handleCreateSession(w http.ResponseWriter, r *http.Request) {
+	// Parse optional metadata from request body
+	var metadata map[string]interface{}
+	if r.Body != nil {
+		defer func() {
+			if err := r.Body.Close(); err != nil {
+				log.Printf("Error closing request body: %v", err)
+			}
+		}()
+		decoder := json.NewDecoder(r.Body)
+		if err := decoder.Decode(&metadata); err != nil {
+			// If no body or invalid JSON, use empty metadata
+			metadata = make(map[string]interface{})
+		}
+	}
+
+	// Create session
+	session, err := s.sessionManager.CreateSession(metadata)
+	if err != nil {
+		writeJSONError(w, http.StatusServiceUnavailable, err.Error())
+		return
+	}
+
+	// Return session info
+	response := map[string]interface{}{
+		"session_id":  session.ID,
+		"created_at":  session.CreatedAt.Format(time.RFC3339),
+		"expires_at":  session.ExpiresAt.Format(time.RFC3339),
+		"ttl_seconds": int(time.Until(session.ExpiresAt).Seconds()),
+		"message":     "Session created successfully. Include sessionid in subsequent requests.",
+		"usage": map[string]string{
+			"query_param": fmt.Sprintf("?sessionid=%s", session.ID),
+			"header":      fmt.Sprintf("X-MCP-Session-ID: %s", session.ID),
+		},
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("X-MCP-Session-ID", session.ID)
+	w.WriteHeader(http.StatusCreated)
+	if err := writeJSON(w, response); err != nil {
+		log.Printf("Error writing session response: %v", err)
+	}
+
+	log.Printf("Created session: %s", session.ID)
+}
+
+// handleSessionByID handles operations on a specific session
+// GET /mcp/session/{sessionid} - Get session info
+// DELETE /mcp/session/{sessionid} - Delete session
+func (s *MCPServer) handleSessionByID(w http.ResponseWriter, r *http.Request) {
+	// Extract session ID from path: /mcp/session/{sessionid}
+	path := strings.TrimPrefix(r.URL.Path, "/mcp/session/")
+	sessionID := strings.TrimSuffix(path, "/")
+
+	if sessionID == "" {
+		writeJSONError(w, http.StatusBadRequest, "session ID required in path")
+		return
+	}
+
+	switch r.Method {
+	case http.MethodGet:
+		info := s.sessionManager.GetSessionInfo(sessionID)
+		if info == nil {
+			writeJSONError(w, http.StatusNotFound, "session not found or expired")
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		if err := writeJSON(w, info); err != nil {
+			log.Printf("Error writing session info: %v", err)
+		}
+	case http.MethodDelete:
+		if s.sessionManager.DeleteSession(sessionID) {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			if err := writeJSON(w, map[string]string{"message": "session deleted"}); err != nil {
+				log.Printf("Error writing delete response: %v", err)
+			}
+		} else {
+			writeJSONError(w, http.StatusNotFound, "session not found")
+		}
+	default:
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+	}
+}
+
+// handleSessionStats returns session manager statistics
+func (s *MCPServer) handleSessionStats(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	stats := s.sessionManager.GetStats()
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	if err := writeJSON(w, stats); err != nil {
+		log.Printf("Error writing session stats: %v", err)
+	}
+}
+
+// handleToolCall handles tool invocation via REST API
+// POST /mcp/tools/{toolname}/call
+// Requires sessionid query parameter or X-MCP-Session-ID header
+func (s *MCPServer) handleToolCall(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed - use POST", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Validate session
+	sessionID := s.getSessionID(r)
+	if sessionID == "" {
+		writeJSONError(w, http.StatusBadRequest,
+			"sessionid must be provided. Create a session first via POST /mcp/session, then include sessionid as query parameter or X-MCP-Session-ID header")
+		return
+	}
+
+	if !s.sessionManager.TouchSession(sessionID) {
+		writeJSONError(w, http.StatusUnauthorized, "invalid or expired session. Create a new session via POST /mcp/session")
+		return
+	}
+
+	// Extract tool name from path: /mcp/tools/{toolname}/call
+	path := strings.TrimPrefix(r.URL.Path, "/mcp/tools/")
+	toolName := strings.TrimSuffix(path, "/call")
+
+	if toolName == "" {
+		writeJSONError(w, http.StatusBadRequest, "tool name required in path")
+		return
+	}
+
+	// Get the tool
+	toolInterface, exists := s.tools[toolName]
+	if !exists {
+		writeJSONError(w, http.StatusNotFound, fmt.Sprintf("tool '%s' not found", toolName))
+		return
+	}
+
+	// Parse request body for arguments
+	var args map[string]interface{}
+	if r.Body != nil {
+		defer func() {
+			if err := r.Body.Close(); err != nil {
+				log.Printf("Error closing request body: %v", err)
+			}
+		}()
+		decoder := json.NewDecoder(r.Body)
+		if err := decoder.Decode(&args); err != nil {
+			// If no body or invalid JSON, use empty args
+			args = make(map[string]interface{})
+		}
+	} else {
+		args = make(map[string]interface{})
+	}
+
+	// Execute the tool using the Tool interface
+	tool, ok := toolInterface.(Tool)
+	if !ok {
+		writeJSONError(w, http.StatusInternalServerError, "tool does not implement expected interface")
+		return
+	}
+
+	ctx := r.Context()
+	result, err := tool.Execute(ctx, args)
+	if err != nil {
+		writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("tool execution failed: %v", err))
+		return
+	}
+
+	// Return result
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("X-MCP-Session-ID", sessionID)
+	w.WriteHeader(http.StatusOK)
+
+	response := map[string]interface{}{
+		"success":    true,
+		"tool":       toolName,
+		"session_id": sessionID,
+		"result":     result,
+	}
+
+	if err := writeJSON(w, response); err != nil {
+		log.Printf("Error writing tool response: %v", err)
+	}
+
+	log.Printf("Tool '%s' executed successfully (session: %s)", toolName, sessionID)
+}
+
+// handleResourceRead handles resource read via REST API
+// POST /mcp/resources/{uri}/read
+// Requires sessionid query parameter or X-MCP-Session-ID header
+func (s *MCPServer) handleResourceRead(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost && r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed - use GET or POST", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Validate session
+	sessionID := s.getSessionID(r)
+	if sessionID == "" {
+		writeJSONError(w, http.StatusBadRequest,
+			"sessionid must be provided. Create a session first via POST /mcp/session, then include sessionid as query parameter or X-MCP-Session-ID header")
+		return
+	}
+
+	if !s.sessionManager.TouchSession(sessionID) {
+		writeJSONError(w, http.StatusUnauthorized, "invalid or expired session. Create a new session via POST /mcp/session")
+		return
+	}
+
+	// Extract resource URI from path: /mcp/resources/{uri}/read
+	// The URI is URL-encoded in the path
+	path := strings.TrimPrefix(r.URL.Path, "/mcp/resources/")
+	resourceURI := strings.TrimSuffix(path, "/read")
+
+	if resourceURI == "" {
+		writeJSONError(w, http.StatusBadRequest, "resource URI required in path")
+		return
+	}
+
+	// URL decode the resource URI (e.g., cluster%3A%2F%2Fhealth -> cluster://health)
+	// The URI should be provided URL-encoded in the path
+
+	// Find the resource
+	resourceInterface, exists := s.resources[resourceURI]
+	if !exists {
+		// Try with cluster:// prefix if not found
+		if !strings.Contains(resourceURI, "://") {
+			resourceURI = "cluster://" + resourceURI
+			resourceInterface, exists = s.resources[resourceURI]
+		}
+		if !exists {
+			writeJSONError(w, http.StatusNotFound, fmt.Sprintf("resource '%s' not found", resourceURI))
+			return
+		}
+	}
+
+	// Execute the resource read
+	ctx := r.Context()
+	var result interface{}
+	var err error
+
+	switch res := resourceInterface.(type) {
+	case *resources.ClusterHealthResource:
+		result, err = res.Read(ctx)
+	case *resources.NodesResource:
+		result, err = res.Read(ctx)
+	case *resources.IncidentsResource:
+		result, err = res.Read(ctx)
+	default:
+		writeJSONError(w, http.StatusInternalServerError, "resource type not supported")
+		return
+	}
+
+	if err != nil {
+		writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("resource read failed: %v", err))
+		return
+	}
+
+	// Return result
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("X-MCP-Session-ID", sessionID)
+	w.WriteHeader(http.StatusOK)
+
+	response := map[string]interface{}{
+		"success":    true,
+		"uri":        resourceURI,
+		"session_id": sessionID,
+		"content":    result,
+	}
+
+	if err := writeJSON(w, response); err != nil {
+		log.Printf("Error writing resource response: %v", err)
+	}
+
+	log.Printf("Resource '%s' read successfully (session: %s)", resourceURI, sessionID)
+}
+
+// getSessionID extracts session ID from query parameter or header
+func (s *MCPServer) getSessionID(r *http.Request) string {
+	// Check query parameter first (MCP standard)
+	sessionID := r.URL.Query().Get("sessionid")
+	if sessionID != "" {
+		return sessionID
+	}
+
+	// Also check the common header variant
+	sessionID = r.Header.Get("X-MCP-Session-ID")
+	if sessionID != "" {
+		return sessionID
+	}
+
+	// Check Mcp-Session-Id header (used by StreamableHTTPHandler)
+	sessionID = r.Header.Get("Mcp-Session-Id")
+	return sessionID
+}
+
+// writeJSONError writes a JSON error response
+func writeJSONError(w http.ResponseWriter, statusCode int, message string) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(statusCode)
+	response := map[string]interface{}{
+		"success": false,
+		"error":   message,
+	}
+	if err := writeJSON(w, response); err != nil {
+		log.Printf("Error writing error response: %v", err)
+	}
 }

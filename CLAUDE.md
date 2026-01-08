@@ -177,15 +177,63 @@ curl http://localhost:8080/mcp/resources
 
 # Cache statistics
 curl http://localhost:8080/cache/stats
-
-# Execute a tool (example: cluster health)
-curl -X POST http://localhost:8080/mcp/tools/get-cluster-health \
-  -H 'Content-Type: application/json' \
-  -d '{}'
 ```
 
-### MCP Protocol Testing
-The server uses SSE (Server-Sent Events) at the root endpoint (`/`) for MCP protocol communication. This is handled by `mcp.NewSSEHandler()` from the official Go SDK (see `internal/server/server.go:260`).
+### Session Management (REST API)
+The server provides session management endpoints for REST API clients. Sessions have a 30-minute TTL and are automatically cleaned up.
+
+```bash
+# Step 1: Create a session
+curl -X POST http://localhost:8080/mcp/session \
+  -H 'Content-Type: application/json' \
+  -d '{"client": "my-client"}'
+# Returns: { "session_id": "abc123...", "expires_at": "...", ... }
+
+# Step 2: Execute a tool using session ID (query parameter)
+curl -X POST "http://localhost:8080/mcp/tools/get-cluster-health/call?sessionid=abc123..." \
+  -H 'Content-Type: application/json' \
+  -d '{}'
+
+# Or use X-MCP-Session-ID header instead
+curl -X POST http://localhost:8080/mcp/tools/list-pods/call \
+  -H 'Content-Type: application/json' \
+  -H 'X-MCP-Session-ID: abc123...' \
+  -d '{"namespace": "default"}'
+
+# Get session info
+curl "http://localhost:8080/mcp/session?sessionid=abc123..."
+# Or: curl http://localhost:8080/mcp/session/abc123...
+
+# Get session statistics
+curl http://localhost:8080/mcp/sessions/stats
+
+# Delete a session
+curl -X DELETE http://localhost:8080/mcp/session/abc123...
+```
+
+### REST API Endpoints Summary
+| Endpoint | Method | Auth | Description |
+|----------|--------|------|-------------|
+| `/health` | GET | No | Health check |
+| `/ready` | GET | No | Readiness check |
+| `/mcp/info` | GET | No | Server metadata |
+| `/mcp/tools` | GET | No | List available tools |
+| `/mcp/resources` | GET | No | List available resources |
+| `/mcp/session` | POST | No | Create new session |
+| `/mcp/session` | GET | Session | Get session info |
+| `/mcp/session/{id}` | GET | No | Get session by ID |
+| `/mcp/session/{id}` | DELETE | No | Delete session |
+| `/mcp/sessions/stats` | GET | No | Session statistics |
+| `/mcp/tools/{tool}/call` | POST | Session | Execute a tool |
+| `/mcp/resources/{uri}/read` | POST/GET | Session | Read a resource |
+| `/cache/stats` | GET | No | Cache statistics |
+
+### MCP Protocol Testing (SSE)
+The server also supports SSE (Server-Sent Events) at the root endpoint (`/`) for native MCP protocol communication. This is handled by `mcp.NewSSEHandler()` from the official Go SDK.
+
+For SSE clients:
+1. GET `/` - Establishes SSE connection, server sends `endpoint` event with session ID
+2. POST `/?sessionid=...` - Send MCP messages to established session
 
 ## Configuration
 
