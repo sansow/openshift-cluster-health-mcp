@@ -296,7 +296,7 @@ func (s *MCPServer) startHTTPTransport(ctx context.Context) error {
 		case r.URL.Path == "/cache/stats":
 			s.handleCacheStats(w, r)
 			return
-		case r.URL.Path == "/mcp":
+		case r.URL.Path == "/mcp/capabilities":
 			s.handleMCPCapabilities(w, r)
 			return
 		case r.URL.Path == "/mcp/info":
@@ -375,7 +375,8 @@ func (s *MCPServer) startStdioTransport(ctx context.Context) error {
 }
 
 // handleMCPCapabilities returns MCP server capabilities per MCP specification
-// GET /mcp - Returns server name, version, and capabilities
+// GET /mcp/capabilities - Returns server name, version, and capabilities
+// Note: /mcp is reserved for SSE transport (OpenShift Lightspeed integration)
 // Reference: https://spec.modelcontextprotocol.io/
 func (s *MCPServer) handleMCPCapabilities(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
