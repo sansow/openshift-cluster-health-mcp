@@ -31,8 +31,18 @@ func (t *CalculatePodCapacityTool) Name() string {
 func (t *CalculatePodCapacityTool) Description() string {
 	return "Calculate how many more pods can be deployed in a namespace or cluster based on " +
 		"resource quotas, current usage, and pod profiles. Supports small, medium, large, and " +
-		"custom pod sizes with configurable safety margins. Useful for capacity planning questions " +
-		"like 'How many more pods can I run?' or 'Can I deploy 50 monitoring agents?'"
+		"custom pod sizes with configurable safety margins.\n\n" +
+		"USAGE GUIDANCE: When the user asks about capacity without specifying parameters, " +
+		"use these defaults and provide an immediate answer:\n" +
+		"- namespace: 'cluster' (cluster-wide analysis)\n" +
+		"- pod_profile: 'medium'\n" +
+		"- safety_margin: 15\n" +
+		"- include_trending: true\n\n" +
+		"After providing results, offer to recalculate with different parameters if needed.\n\n" +
+		"Example questions this tool answers:\n" +
+		"- 'How many more pods can I run?'\n" +
+		"- 'Can I deploy 50 monitoring agents?'\n" +
+		"- 'What's my cluster capacity?'"
 }
 
 // InputSchema returns the JSON schema for tool inputs
@@ -42,7 +52,8 @@ func (t *CalculatePodCapacityTool) InputSchema() map[string]interface{} {
 		"properties": map[string]interface{}{
 			"namespace": map[string]interface{}{
 				"type":        "string",
-				"description": "Namespace name to analyze. Use 'cluster' for cluster-wide capacity analysis.",
+				"description": "Namespace name to analyze. Use 'cluster' for cluster-wide capacity analysis. Default: 'cluster'",
+				"default":     "cluster",
 			},
 			"pod_profile": map[string]interface{}{
 				"type":        "string",
@@ -77,7 +88,7 @@ func (t *CalculatePodCapacityTool) InputSchema() map[string]interface{} {
 				"default":     true,
 			},
 		},
-		"required": []string{"namespace"},
+		"required": []string{},
 	}
 }
 
@@ -166,9 +177,9 @@ func (t *CalculatePodCapacityTool) Execute(ctx context.Context, args map[string]
 		return nil, fmt.Errorf("invalid input: %w", err)
 	}
 
-	// Validate required fields
+	// Apply default namespace if not specified
 	if input.Namespace == "" {
-		return nil, fmt.Errorf("namespace is required")
+		input.Namespace = "cluster"
 	}
 
 	// Handle cluster-wide capacity
