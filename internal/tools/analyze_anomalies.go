@@ -312,29 +312,6 @@ func (t *AnalyzeAnomaliesTool) buildPodRegex(input AnalyzeAnomaliesInput) string
 
 // Helper functions
 
-func getFloat64(m map[string]interface{}, key string) float64 {
-	if v, ok := m[key]; ok {
-		switch val := v.(type) {
-		case float64:
-			return val
-		case int:
-			return float64(val)
-		case int64:
-			return float64(val)
-		}
-	}
-	return 0.0
-}
-
-func getString(m map[string]interface{}, key string) string {
-	if v, ok := m[key]; ok {
-		if s, ok := v.(string); ok {
-			return s
-		}
-	}
-	return ""
-}
-
 func determineSeverity(score float64) string {
 	if score >= 0.9 {
 		return "critical"
