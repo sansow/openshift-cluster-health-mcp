@@ -265,26 +265,14 @@ func TestCalculatePodCapacityToolValidation(t *testing.T) {
 func TestConvertPodEstimates(t *testing.T) {
 	tool := NewCalculatePodCapacityTool(nil)
 
-	// Create test data using the capacity package types
-	estimates := make(map[string]*struct {
-		CPUMillicores  int64
-		MemoryMB       int64
-		MaxPods        int
-		SafePods       int
-		LimitingFactor string
-	})
-
-	// We need to import the actual capacity.PodEstimate, but for testing
-	// we can just test the formatting function indirectly
-
 	// Test that the tool can create output correctly
 	if tool == nil {
 		t.Fatal("tool should not be nil")
 	}
 
-	// Verify estimates map is not nil when created
-	if estimates == nil {
-		t.Error("estimates should not be nil")
+	// Verify the tool has the expected name
+	if tool.Name() != "calculate-pod-capacity" {
+		t.Errorf("expected tool name 'calculate-pod-capacity', got '%s'", tool.Name())
 	}
 }
 

@@ -406,7 +406,7 @@ func (c *Calculator) estimateDaysUntilThreshold(
 	threshold float64,
 ) int {
 	// Calculate days for each resource
-	var daysCPU, daysMemory int = 999, 999
+	daysCPU, daysMemory := 999, 999
 
 	if cpuGrowth > 0 && currentCPU < threshold {
 		daysCPU = int((threshold - currentCPU) / cpuGrowth)

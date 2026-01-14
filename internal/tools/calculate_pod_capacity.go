@@ -598,13 +598,13 @@ func parseCPU(cpu string) int64 {
 	// Handle millicores format (e.g., "200m")
 	if strings.HasSuffix(cpu, "m") {
 		var value int64
-		fmt.Sscanf(cpu, "%dm", &value)
+		_, _ = fmt.Sscanf(cpu, "%dm", &value) //nolint:errcheck // Best effort parsing
 		return value
 	}
 
 	// Handle decimal format (e.g., "0.5", "1")
 	var value float64
-	fmt.Sscanf(cpu, "%f", &value)
+	_, _ = fmt.Sscanf(cpu, "%f", &value) //nolint:errcheck // Best effort parsing
 	return int64(value * 1000)
 }
 
@@ -619,26 +619,26 @@ func parseMemoryMB(memory string) int64 {
 	// Handle Gi format
 	if strings.HasSuffix(memory, "Gi") {
 		var value int64
-		fmt.Sscanf(memory, "%dGi", &value)
+		_, _ = fmt.Sscanf(memory, "%dGi", &value) //nolint:errcheck // Best effort parsing
 		return value * 1024
 	}
 
 	// Handle Mi format
 	if strings.HasSuffix(memory, "Mi") {
 		var value int64
-		fmt.Sscanf(memory, "%dMi", &value)
+		_, _ = fmt.Sscanf(memory, "%dMi", &value) //nolint:errcheck // Best effort parsing
 		return value
 	}
 
 	// Handle Ki format
 	if strings.HasSuffix(memory, "Ki") {
 		var value int64
-		fmt.Sscanf(memory, "%dKi", &value)
+		_, _ = fmt.Sscanf(memory, "%dKi", &value) //nolint:errcheck // Best effort parsing
 		return value / 1024
 	}
 
 	// Handle plain bytes
 	var value int64
-	fmt.Sscanf(memory, "%d", &value)
+	_, _ = fmt.Sscanf(memory, "%d", &value) //nolint:errcheck // Best effort parsing
 	return value / (1024 * 1024)
 }
