@@ -576,7 +576,7 @@ func (t *AnalyzeScalingImpactTool) generateWarnings(nsImpact NamespaceImpact, in
 	// Limiting factor warning
 	if nsImpact.HeadroomRemainingPct < 10 {
 		warnings = append(warnings, fmt.Sprintf("%s is the limiting factor with only %.1f%% headroom remaining", 
-			strings.Title(nsImpact.LimitingFactor), nsImpact.HeadroomRemainingPct))
+			capitalizeFirst(nsImpact.LimitingFactor), nsImpact.HeadroomRemainingPct))
 	}
 
 	// Infrastructure warnings
@@ -697,4 +697,15 @@ func maxFloat(a, b float64) float64 {
 		return a
 	}
 	return b
+}
+
+// capitalizeFirst capitalizes the first letter of a string
+func capitalizeFirst(s string) string {
+	if len(s) == 0 {
+		return s
+	}
+	if s[0] >= 'a' && s[0] <= 'z' {
+		return string(s[0]-32) + s[1:]
+	}
+	return s
 }
