@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/openshift-aiops/openshift-cluster-health-mcp/pkg/clients"
 )
@@ -27,7 +28,9 @@ func (t *AnalyzeAnomaliesTool) Name() string {
 
 // Description returns the tool description
 func (t *AnalyzeAnomaliesTool) Description() string {
-	return "Analyze Prometheus metrics for anomalies using ML-powered KServe models. Returns anomaly scores with confidence levels and natural language explanations."
+	return "Analyze Prometheus metrics for anomalies using ML-powered KServe models. " +
+		"Supports filtering by namespace, deployment, pod, or label selector for targeted analysis. " +
+		"Returns anomaly scores with confidence levels and natural language explanations."
 }
 
 // InputSchema returns the JSON schema for tool inputs
@@ -42,6 +45,18 @@ func (t *AnalyzeAnomaliesTool) InputSchema() map[string]interface{} {
 			"namespace": map[string]interface{}{
 				"type":        "string",
 				"description": "Kubernetes namespace to scope the analysis (optional)",
+			},
+			"deployment": map[string]interface{}{
+				"type":        "string",
+				"description": "Specific deployment name to filter anomalies for (e.g., 'sample-flask-app'). Mutually exclusive with 'pod'.",
+			},
+			"pod": map[string]interface{}{
+				"type":        "string",
+				"description": "Specific pod name to filter anomalies for (e.g., 'etcd-0', 'prometheus-k8s-0'). Mutually exclusive with 'deployment'.",
+			},
+			"label_selector": map[string]interface{}{
+				"type":        "string",
+				"description": "Kubernetes label selector to filter pods (e.g., 'app=flask', 'component=etcd'). Can combine with namespace.",
 			},
 			"time_range": map[string]interface{}{
 				"type":        "string",
@@ -68,11 +83,14 @@ func (t *AnalyzeAnomaliesTool) InputSchema() map[string]interface{} {
 
 // AnalyzeAnomaliesInput represents the input parameters
 type AnalyzeAnomaliesInput struct {
-	Metric    string  `json:"metric"`
-	Namespace string  `json:"namespace"`
-	TimeRange string  `json:"time_range"`
-	Threshold float64 `json:"threshold"`
-	ModelName string  `json:"model_name"`
+	Metric        string  `json:"metric"`
+	Namespace     string  `json:"namespace"`
+	Deployment    string  `json:"deployment"`
+	Pod           string  `json:"pod"`
+	LabelSelector string  `json:"label_selector"`
+	TimeRange     string  `json:"time_range"`
+	Threshold     float64 `json:"threshold"`
+	ModelName     string  `json:"model_name"`
 }
 
 // AnomalyResult represents a detected anomaly
@@ -92,6 +110,10 @@ type AnalyzeAnomaliesOutput struct {
 	Metric         string          `json:"metric"`
 	TimeRange      string          `json:"time_range"`
 	Namespace      string          `json:"namespace,omitempty"`
+	Deployment     string          `json:"deployment,omitempty"`
+	Pod            string          `json:"pod,omitempty"`
+	LabelSelector  string          `json:"label_selector,omitempty"`
+	FilterTarget   string          `json:"filter_target,omitempty"`
 	ModelUsed      string          `json:"model_used"`
 	Anomalies      []AnomalyResult `json:"anomalies"`
 	AnomalyCount   int             `json:"anomaly_count"`
@@ -119,12 +141,24 @@ func (t *AnalyzeAnomaliesTool) Execute(ctx context.Context, args map[string]inte
 		return nil, fmt.Errorf("metric is required")
 	}
 
-	// Build prediction request
+	// Validate mutual exclusivity of deployment and pod filters
+	if err := t.validateFilters(input); err != nil {
+		return nil, err
+	}
+
+	// Determine filter target description
+	filterTarget := t.determineFilterTarget(input)
+
+	// Build prediction request with enhanced filtering
 	instances := []map[string]interface{}{
 		{
-			"metric":     input.Metric,
-			"namespace":  input.Namespace,
-			"time_range": input.TimeRange,
+			"metric":         input.Metric,
+			"namespace":      input.Namespace,
+			"deployment":     input.Deployment,
+			"pod":            input.Pod,
+			"label_selector": input.LabelSelector,
+			"pod_regex":      t.buildPodRegex(input),
+			"time_range":     input.TimeRange,
 		},
 	}
 
@@ -174,27 +208,95 @@ func (t *AnalyzeAnomaliesTool) Execute(ctx context.Context, args map[string]inte
 
 	// Build output
 	output := AnalyzeAnomaliesOutput{
-		Status:       "success",
-		Metric:       input.Metric,
-		TimeRange:    input.TimeRange,
-		Namespace:    input.Namespace,
-		ModelUsed:    input.ModelName,
-		Anomalies:    anomalies,
-		AnomalyCount: len(anomalies),
-		MaxScore:     maxScore,
-		AverageScore: avgScore,
+		Status:        "success",
+		Metric:        input.Metric,
+		TimeRange:     input.TimeRange,
+		Namespace:     input.Namespace,
+		Deployment:    input.Deployment,
+		Pod:           input.Pod,
+		LabelSelector: input.LabelSelector,
+		FilterTarget:  filterTarget,
+		ModelUsed:     input.ModelName,
+		Anomalies:     anomalies,
+		AnomalyCount:  len(anomalies),
+		MaxScore:      maxScore,
+		AverageScore:  avgScore,
 	}
 
-	// Generate message and recommendation
+	// Generate message and recommendation with filter context
 	if len(anomalies) == 0 {
-		output.Message = fmt.Sprintf("No anomalies detected in %s over the last %s (threshold: %.2f)", input.Metric, input.TimeRange, input.Threshold)
-		output.Recommendation = "Cluster metrics appear normal. Continue monitoring."
+		output.Message = fmt.Sprintf("No anomalies detected in %s for %s over the last %s (threshold: %.2f)",
+			input.Metric, filterTarget, input.TimeRange, input.Threshold)
+		output.Recommendation = "Metrics appear normal for the specified target. Continue monitoring."
 	} else {
-		output.Message = fmt.Sprintf("Detected %d anomalies in %s over the last %s (max score: %.2f)", len(anomalies), input.Metric, input.TimeRange, maxScore)
+		output.Message = fmt.Sprintf("Detected %d anomalies in %s for %s over the last %s (max score: %.2f)",
+			len(anomalies), input.Metric, filterTarget, input.TimeRange, maxScore)
 		output.Recommendation = generateRecommendation(input.Metric, maxScore, len(anomalies))
 	}
 
 	return output, nil
+}
+
+// validateFilters validates the mutual exclusivity and combination rules for filters
+func (t *AnalyzeAnomaliesTool) validateFilters(input AnalyzeAnomaliesInput) error {
+	// Deployment and pod are mutually exclusive
+	if input.Deployment != "" && input.Pod != "" {
+		return fmt.Errorf("'deployment' and 'pod' filters are mutually exclusive; specify only one")
+	}
+
+	// Label selector cannot be combined with deployment or pod
+	if input.LabelSelector != "" && (input.Deployment != "" || input.Pod != "") {
+		return fmt.Errorf("'label_selector' cannot be combined with 'deployment' or 'pod' filters")
+	}
+
+	return nil
+}
+
+// determineFilterTarget returns a human-readable description of what is being analyzed
+func (t *AnalyzeAnomaliesTool) determineFilterTarget(input AnalyzeAnomaliesInput) string {
+	var parts []string
+
+	if input.Pod != "" {
+		parts = append(parts, fmt.Sprintf("pod '%s'", input.Pod))
+	} else if input.Deployment != "" {
+		parts = append(parts, fmt.Sprintf("deployment '%s'", input.Deployment))
+	} else if input.LabelSelector != "" {
+		parts = append(parts, fmt.Sprintf("pods matching '%s'", input.LabelSelector))
+	}
+
+	if input.Namespace != "" {
+		if len(parts) > 0 {
+			parts = append(parts, fmt.Sprintf("in namespace '%s'", input.Namespace))
+		} else {
+			parts = append(parts, fmt.Sprintf("namespace '%s'", input.Namespace))
+		}
+	}
+
+	if len(parts) == 0 {
+		return "cluster-wide"
+	}
+
+	return strings.Join(parts, " ")
+}
+
+// buildPodRegex constructs a regex pattern for pod filtering based on deployment name
+func (t *AnalyzeAnomaliesTool) buildPodRegex(input AnalyzeAnomaliesInput) string {
+	if input.Deployment != "" {
+		// Deployment pods typically have format: {deployment-name}-{replicaset-hash}-{pod-hash}
+		// or for StatefulSets: {statefulset-name}-{ordinal}
+		return fmt.Sprintf("%s-.*", input.Deployment)
+	}
+	if input.Pod != "" {
+		// For specific pod, use exact match or prefix match for StatefulSets
+		// Infrastructure pods like etcd-0 may be matched as prefix
+		if strings.HasSuffix(input.Pod, "-0") || strings.HasSuffix(input.Pod, "-1") || strings.HasSuffix(input.Pod, "-2") {
+			// Likely a StatefulSet pod, match exactly
+			return fmt.Sprintf("^%s$", input.Pod)
+		}
+		// For other pods, allow prefix matching
+		return fmt.Sprintf("^%s.*", input.Pod)
+	}
+	return ""
 }
 
 // Helper functions

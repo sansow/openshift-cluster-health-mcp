@@ -231,6 +231,88 @@ const result = await client.callTool({
 console.log("Cluster health:", result);
 ```
 
+### Analyze Anomalies Tool
+
+The `analyze-anomalies` tool performs ML-powered anomaly detection on Prometheus metrics. It supports filtering by namespace, deployment, pod, or label selector for targeted analysis.
+
+**Input Parameters**:
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `metric` | string | Yes | The metric name to analyze (e.g., `cpu_usage`, `memory_usage`, `pod_restarts`). |
+| `namespace` | string | No | Kubernetes namespace to scope the analysis. |
+| `deployment` | string | No | Specific deployment name to filter anomalies for. Mutually exclusive with `pod`. |
+| `pod` | string | No | Specific pod name to filter anomalies for (e.g., `etcd-0`, `prometheus-k8s-0`). Mutually exclusive with `deployment`. |
+| `label_selector` | string | No | Kubernetes label selector to filter pods (e.g., `app=flask`). Cannot combine with `deployment` or `pod`. |
+| `time_range` | string | No | Time range for analysis: `1h`, `6h`, `24h`, `7d` (default: `1h`). |
+| `threshold` | number | No | Anomaly score threshold 0.0-1.0 (default: `0.7`). |
+| `model_name` | string | No | KServe model name (default: `predictive-analytics`). |
+
+**Example Usage**:
+
+```bash
+# Analyze CPU anomalies in a specific deployment
+curl -X POST http://localhost:8080/mcp/tools/analyze-anomalies/call \
+  -H 'Content-Type: application/json' \
+  -H 'X-MCP-Session-ID: <session-id>' \
+  -d '{
+    "metric": "cpu_usage",
+    "deployment": "sample-flask-app",
+    "namespace": "self-healing-platform",
+    "time_range": "24h"
+  }'
+
+# Analyze memory anomalies in etcd pods
+curl -X POST http://localhost:8080/mcp/tools/analyze-anomalies/call \
+  -H 'Content-Type: application/json' \
+  -H 'X-MCP-Session-ID: <session-id>' \
+  -d '{
+    "metric": "memory_usage",
+    "pod": "etcd-0",
+    "namespace": "openshift-etcd"
+  }'
+
+# Analyze anomalies using label selector
+curl -X POST http://localhost:8080/mcp/tools/analyze-anomalies/call \
+  -H 'Content-Type: application/json' \
+  -H 'X-MCP-Session-ID: <session-id>' \
+  -d '{
+    "metric": "cpu_usage",
+    "label_selector": "app=monitoring",
+    "time_range": "6h"
+  }'
+```
+
+**Example Response**:
+
+```json
+{
+  "status": "success",
+  "metric": "cpu_usage",
+  "time_range": "24h",
+  "namespace": "self-healing-platform",
+  "deployment": "sample-flask-app",
+  "filter_target": "deployment 'sample-flask-app' in namespace 'self-healing-platform'",
+  "model_used": "predictive-analytics",
+  "anomalies": [
+    {
+      "timestamp": "2026-01-13T14:30:00Z",
+      "metric_name": "cpu_usage",
+      "value": 95.5,
+      "anomaly_score": 0.89,
+      "confidence": 0.92,
+      "severity": "high",
+      "explanation": "Metric 'cpu_usage' shows high anomaly (score: 0.89, confidence: 0.92)."
+    }
+  ],
+  "anomaly_count": 1,
+  "max_score": 0.89,
+  "average_score": 0.89,
+  "message": "Detected 1 anomalies in cpu_usage for deployment 'sample-flask-app' in namespace 'self-healing-platform' over the last 24h (max score: 0.89)",
+  "recommendation": "WARNING: Monitor closely. 1 anomalies detected in cpu_usage."
+}
+```
+
 ### Predict Resource Usage Tool
 
 The `predict-resource-usage` tool enables time-specific resource usage forecasting using ML models. It supports predictions for pods, deployments, namespaces, or cluster-wide infrastructure.
