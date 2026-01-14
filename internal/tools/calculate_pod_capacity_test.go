@@ -24,33 +24,36 @@ func TestCalculatePodCapacityToolMetadata(t *testing.T) {
 		t.Fatal("input schema should not be nil")
 	}
 
-	// Verify required properties
+	// Verify expected properties exist
 	props, ok := schema["properties"].(map[string]interface{})
 	if !ok {
 		t.Fatal("schema should have properties")
 	}
 
-	requiredProps := []string{"namespace", "pod_profile", "custom_resources", "safety_margin", "include_trending"}
-	for _, prop := range requiredProps {
+	expectedProps := []string{"namespace", "pod_profile", "custom_resources", "safety_margin", "include_trending"}
+	for _, prop := range expectedProps {
 		if _, ok := props[prop]; !ok {
 			t.Errorf("schema should have property '%s'", prop)
 		}
 	}
 
-	// Verify namespace is required
+	// Verify namespace has a default value (not required)
+	// Per ADR and tool description, namespace defaults to "cluster" for cluster-wide analysis
+	nsProp, ok := props["namespace"].(map[string]interface{})
+	if !ok {
+		t.Fatal("schema should have namespace property")
+	}
+	if defaultVal, ok := nsProp["default"]; !ok || defaultVal != "cluster" {
+		t.Error("namespace should have default value 'cluster'")
+	}
+
+	// Verify required is empty (all parameters have defaults)
 	required, ok := schema["required"].([]string)
 	if !ok {
 		t.Fatal("schema should have required field")
 	}
-	found := false
-	for _, r := range required {
-		if r == "namespace" {
-			found = true
-			break
-		}
-	}
-	if !found {
-		t.Error("namespace should be required")
+	if len(required) != 0 {
+		t.Errorf("no parameters should be required (all have defaults), got: %v", required)
 	}
 }
 
@@ -244,21 +247,32 @@ func TestCalculatePodCapacityToolParseInput(t *testing.T) {
 }
 
 func TestCalculatePodCapacityToolValidation(t *testing.T) {
+	// Test with nil k8sClient - should return an error gracefully
+	// rather than panic when trying to calculate capacity
 	tool := NewCalculatePodCapacityTool(nil)
 	ctx := context.Background()
 
-	// Test missing namespace
+	// Test that Execute returns an error when k8sClient is nil
+	// (namespace defaults to "cluster" which requires k8sClient)
 	_, err := tool.Execute(ctx, map[string]interface{}{})
 	if err == nil {
-		t.Error("expected error for missing namespace")
+		t.Error("expected error when k8sClient is nil")
 	}
 
-	// Test empty namespace
+	// Test with explicit "cluster" namespace - should also error with nil client
 	_, err = tool.Execute(ctx, map[string]interface{}{
-		"namespace": "",
+		"namespace": "cluster",
 	})
 	if err == nil {
-		t.Error("expected error for empty namespace")
+		t.Error("expected error when k8sClient is nil for cluster namespace")
+	}
+
+	// Test with specific namespace - should also error with nil client
+	_, err = tool.Execute(ctx, map[string]interface{}{
+		"namespace": "default",
+	})
+	if err == nil {
+		t.Error("expected error when k8sClient is nil for specific namespace")
 	}
 }
 

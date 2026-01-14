@@ -171,6 +171,11 @@ type TrendingOutput struct {
 
 // Execute runs the calculate-pod-capacity tool
 func (t *CalculatePodCapacityTool) Execute(ctx context.Context, args map[string]interface{}) (interface{}, error) {
+	// Verify k8sClient is available
+	if t.k8sClient == nil {
+		return nil, fmt.Errorf("kubernetes client not initialized")
+	}
+
 	// Parse input arguments
 	input, err := t.parseInput(args)
 	if err != nil {
