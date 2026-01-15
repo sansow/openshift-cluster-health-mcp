@@ -30,10 +30,34 @@ func (t *AnalyzeAnomaliesTool) Name() string {
 
 // Description returns the tool description
 func (t *AnalyzeAnomaliesTool) Description() string {
-	return "Analyze Prometheus metrics for anomalies using ML-powered models via the Coordination Engine. " +
-		"The Coordination Engine handles feature engineering (45 features from 5 base metrics) and model inference. " +
-		"Supports filtering by namespace, deployment, pod, or label selector for targeted analysis. " +
-		"Returns anomaly scores with confidence levels and natural language explanations."
+	return `Detect anomalies in cluster resource usage using ML models (Isolation Forest) via the Coordination Engine.
+
+RESPONSE INTERPRETATION:
+- anomalies[].anomaly_score: Score from 0.0 to 1.0 (higher = more anomalous)
+- anomalies[].severity: Classification - "low", "medium", "high", "critical"
+- anomaly_count: Total number of anomalies detected above threshold
+- max_score: Highest anomaly score found in the analysis period
+- average_score: Mean anomaly score across all detected anomalies
+- filter_target: What was analyzed (e.g., "deployment 'sample-app' in namespace 'default'")
+
+PRESENTATION TO USER:
+- If anomaly_count=0: "No anomalies detected. Cluster metrics appear normal for [filter_target]."
+- If anomaly_count>0: "Detected [N] anomalies in [metric] for [filter_target] (max severity: [severity])"
+- Always include the recommendation field in your response
+- For high/critical severity: Emphasize urgency and suggest immediate investigation
+- For memory-related anomalies: Suggest checking pod memory limits and potential memory leaks
+- For CPU-related anomalies: Suggest checking for runaway processes or scaling needs
+
+FILTERING OPTIONS:
+- namespace: Scope to a specific namespace
+- deployment: Analyze specific deployment (mutually exclusive with pod)
+- pod: Analyze specific pod (mutually exclusive with deployment)
+- label_selector: Filter by Kubernetes labels (e.g., 'app=flask')
+
+Example questions this tool answers:
+- "Are there any anomalies in CPU usage?"
+- "Check for anomalies in the openshift-monitoring namespace"
+- "Analyze memory_usage for the sample-flask-app deployment"`
 }
 
 // InputSchema returns the JSON schema for tool inputs

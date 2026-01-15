@@ -29,20 +29,40 @@ func (t *CalculatePodCapacityTool) Name() string {
 
 // Description returns the tool description
 func (t *CalculatePodCapacityTool) Description() string {
-	return "Calculate how many more pods can be deployed in a namespace or cluster based on " +
-		"resource quotas, current usage, and pod profiles. Supports small, medium, large, and " +
-		"custom pod sizes with configurable safety margins.\n\n" +
-		"USAGE GUIDANCE: When the user asks about capacity without specifying parameters, " +
-		"use these defaults and provide an immediate answer:\n" +
-		"- namespace: 'cluster' (cluster-wide analysis)\n" +
-		"- pod_profile: 'medium'\n" +
-		"- safety_margin: 15\n" +
-		"- include_trending: true\n\n" +
-		"After providing results, offer to recalculate with different parameters if needed.\n\n" +
-		"Example questions this tool answers:\n" +
-		"- 'How many more pods can I run?'\n" +
-		"- 'Can I deploy 50 monitoring agents?'\n" +
-		"- 'What's my cluster capacity?'"
+	return `Calculate remaining pod capacity based on current resource usage and cluster/namespace limits.
+
+RESPONSE INTERPRETATION:
+- recommended_limit.safe_pod_count: Number of additional pods that can safely be scheduled
+- recommended_limit.max_pod_count: Theoretical maximum (without safety margin)
+- recommended_limit.limiting_factor: What will run out first ("cpu", "memory", or "pod_count")
+- current_usage.cpu_percent / memory_percent: Current resource utilization percentage
+- available_capacity.cpu / memory / pod_slots: Raw available resources
+
+PRESENTATION TO USER:
+- Lead with capacity: "You can safely deploy approximately [safe_pod_count] more [pod_profile] pods"
+- Include limiting factor: "Limited by [limiting_factor]"
+- If cpu_percent or memory_percent > 80%: Warn about capacity constraints
+- If limiting_factor is "pod_count": Mention cluster pod limits, not just resources
+- Always mention both CPU and memory headroom for context
+- Include trending info if available: "At current growth rate, capacity exhaustion in [N] days"
+
+DEFAULT ASSUMPTIONS (use if user doesn't specify):
+- namespace: 'cluster' (cluster-wide analysis)
+- pod_profile: 'medium' (100m CPU, 256Mi memory)
+- safety_margin: 15% headroom maintained
+- include_trending: true
+
+POD PROFILES:
+- small: 50m CPU, 128Mi memory - lightweight workloads
+- medium: 100m CPU, 256Mi memory - typical applications
+- large: 500m CPU, 1Gi memory - resource-intensive workloads
+- custom: User-specified CPU and memory requests
+
+Example questions this tool answers:
+- "How many more pods can I run?"
+- "Can I deploy 50 monitoring agents?"
+- "What's my cluster capacity?"
+- "How much headroom do I have in the openshift-monitoring namespace?"`
 }
 
 // InputSchema returns the JSON schema for tool inputs

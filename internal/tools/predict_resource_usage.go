@@ -31,9 +31,27 @@ func (t *PredictResourceUsageTool) Name() string {
 
 // Description returns the tool description
 func (t *PredictResourceUsageTool) Description() string {
-	return "Predict future resource usage (CPU, memory) for a specific time using ML models. " +
-		"Supports pod, deployment, namespace, and cluster-wide predictions. " +
-		"Useful for capacity planning and proactive scaling decisions."
+	return `Predict future CPU and memory usage using ML models trained on historical cluster data.
+
+RESPONSE INTERPRETATION:
+- predicted_metrics.cpu_percent / memory_percent: Forecasted usage at target time (0-100%)
+- current_metrics.cpu_percent: Current estimated CPU utilization baseline (0-100%)
+- current_metrics.memory_percent: Current estimated memory utilization baseline (0-100%)
+- predicted_metrics.confidence: Model confidence score (0.85 = 85% confident)
+
+PRESENTATION TO USER:
+- Lead with prediction: "Predicted CPU at [time]: [X]%"
+- Include baseline: "Current baseline: CPU [Y]%, Memory [Z]%"
+- Include confidence: "Confidence: [N]%"
+- If confidence < 0.7, warn user predictions may be less reliable
+- If current_metrics values seem low, note this is estimated from cluster state
+
+SCOPES: cluster (default), namespace, deployment, pod
+
+Example questions this tool answers:
+- "What will CPU be at 3 PM?"
+- "Predict memory usage for tomorrow morning"
+- "What's the resource forecast for openshift-monitoring namespace?"`
 }
 
 // InputSchema returns the JSON schema for tool inputs
