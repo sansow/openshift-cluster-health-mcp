@@ -52,7 +52,7 @@ FILTERING OPTIONS:
 - namespace: Scope to a specific namespace
 - deployment: Analyze specific deployment (mutually exclusive with pod)
 - pod: Analyze specific pod (mutually exclusive with deployment)
-- label_selector: Filter by Kubernetes labels (e.g., 'app=flask')
+- label selector: Filter by Kubernetes labels (e.g., 'app=flask')
 
 Example questions this tool answers:
 - "Are there any anomalies in CPU usage?"

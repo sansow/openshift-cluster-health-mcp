@@ -215,7 +215,7 @@ jobs:
           fi
 
   security:
-    name: Security Scan
+    name: Security
     runs-on: ubuntu-latest
     permissions:
       security-events: write
@@ -238,7 +238,7 @@ jobs:
           sarif_file: 'trivy-results.sarif'
 
   helm:
-    name: Helm Lint
+    name: Helm
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
