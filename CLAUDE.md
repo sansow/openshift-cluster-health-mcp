@@ -333,3 +333,29 @@ See `docs/adrs/` for all architectural decisions.
 6. **MCP SDK integration**: All tool registration uses the official MCP Go SDK (`mcp.AddTool()`). Don't create custom MCP protocol handlers.
 
 7. **OpenShift compatibility**: Use SecurityContext with `runAsNonRoot: true`, don't set `runAsUser` (let OpenShift assign).
+
+## Branch Protection
+
+All main and release branches are protected to ensure code quality and prevent unauthorized changes. See [`docs/BRANCH_PROTECTION.md`](docs/BRANCH_PROTECTION.md) for complete details.
+
+### Protected Branches
+- **`main`** - Primary development branch (1 required approval)
+- **`release-4.18`**, **`release-4.19`**, **`release-4.20`** - Release branches (2 required approvals)
+
+### Making Changes
+- **Direct pushes are blocked** - All changes must go through Pull Requests
+- **Required CI checks must pass**: Test, Lint, Build, Security, Helm, Container Build
+- **Code owner approval required** - See `.github/CODEOWNERS` for ownership mapping
+- **All conversations must be resolved** before merging
+
+### Contribution Workflow
+1. Fork the repository and create a feature branch
+2. Make changes and run local validation: `make test && make lint && make build`
+3. Commit using [Conventional Commits](https://www.conventionalcommits.org/) format
+4. Push to your fork and open a Pull Request
+5. Fill out the [PR template](.github/PULL_REQUEST_TEMPLATE.md)
+6. Wait for CI checks to pass and code owner review
+7. Address feedback and resolve conversations
+8. Merge once approved and all checks pass
+
+See [`.github/CONTRIBUTING.md`](.github/CONTRIBUTING.md) for detailed contribution guidelines.

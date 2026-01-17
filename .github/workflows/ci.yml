@@ -34,54 +34,32 @@ jobs:
       - name: Download dependencies
         run: go mod download
 
-      - name: Set up OpenShift kubeconfig (Optional)
+      - name: Set up OpenShift kubeconfig using oc login
         if: env.OPENSHIFT_SERVER != '' && env.OPENSHIFT_TOKEN != ''
         run: |
-          echo "Setting up OpenShift kubeconfig from secrets..."
-          mkdir -p ~/.kube
-          cat > ~/.kube/config <<EOF
-          apiVersion: v1
-          kind: Config
-          clusters:
-          - cluster:
-              insecure-skip-tls-verify: true
-              server: ${{ env.OPENSHIFT_SERVER }}
-            name: openshift-cluster
-          contexts:
-          - context:
-              cluster: openshift-cluster
-              namespace: default
-              user: openshift-user
-            name: openshift-context
-          current-context: openshift-context
-          users:
-          - name: openshift-user
-            user:
-              token: ${{ env.OPENSHIFT_TOKEN }}
-          EOF
-          chmod 600 ~/.kube/config
+          echo "Installing oc CLI..."
+          curl -LO https://mirror.openshift.com/pub/openshift-v4/clients/ocp/stable/openshift-client-linux.tar.gz
+          tar -xzf openshift-client-linux.tar.gz
+          sudo mv oc /usr/local/bin/
+          rm -f kubectl README.md openshift-client-linux.tar.gz
+
+          echo "Logging into OpenShift cluster..."
+          oc login --token=${{ env.OPENSHIFT_TOKEN }} --server=${{ env.OPENSHIFT_SERVER }} --insecure-skip-tls-verify=true
+
           echo "KUBECONFIG=$HOME/.kube/config" >> $GITHUB_ENV
-          echo "✓ OpenShift kubeconfig configured"
+          echo "✓ Logged into OpenShift cluster as $(oc whoami)"
 
-      - name: Verify OpenShift connectivity and version (Optional)
+      - name: Verify OpenShift connectivity and version
         if: env.OPENSHIFT_SERVER != '' && env.OPENSHIFT_TOKEN != ''
         run: |
-          # Install kubectl
-          echo "Installing kubectl..."
-          KUBECTL_VERSION=$(curl -L -s https://dl.k8s.io/release/stable.txt)
-          curl -LO "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/amd64/kubectl"
-          chmod +x kubectl
-          sudo mv kubectl /usr/local/bin/
-
-          # Test connection
-          echo "Testing OpenShift cluster connectivity..."
-          if ! kubectl version --short 2>/dev/null; then
-            echo "⚠ Could not connect to OpenShift cluster - tests will run without cluster access"
-            exit 0
+          # Verify we can list nodes (test authentication)
+          echo "Verifying cluster access..."
+          if ! oc get nodes >/dev/null 2>&1; then
+            echo "❌ ERROR: Cannot list nodes - authentication may have failed"
+            exit 1
           fi
 
-          echo "✓ Connected to OpenShift cluster"
-          kubectl get nodes && echo "✓ Cluster is accessible" || echo "⚠ Could not list nodes"
+          echo "✓ Cluster is accessible - $(oc get nodes --no-headers | wc -l) nodes found"
 
           # Determine expected OpenShift version from branch
           BRANCH_NAME="${{ github.ref_name }}"
@@ -111,13 +89,13 @@ jobs:
           echo "Expected: OpenShift $EXPECTED_OCP_VERSION (Kubernetes $EXPECTED_K8S_VERSION)"
 
           # Get Kubernetes version
-          K8S_FULL_VERSION=$(kubectl version -o json 2>/dev/null | jq -r '.serverVersion.gitVersion' | sed 's/v//')
+          K8S_FULL_VERSION=$(oc version -o json 2>/dev/null | jq -r '.serverVersion.gitVersion' | sed 's/v//')
           K8S_MAJOR_MINOR=$(echo $K8S_FULL_VERSION | cut -d. -f1-2)
           echo "Detected: Kubernetes $K8S_FULL_VERSION (major.minor: $K8S_MAJOR_MINOR)"
 
           # Try to get OpenShift version (if available)
-          if kubectl version -o json 2>/dev/null | jq -e '.serverVersion.platform' >/dev/null 2>&1; then
-            OCP_VERSION=$(kubectl get clusterversion version -o jsonpath='{.status.desired.version}' 2>/dev/null || echo "unknown")
+          if oc version -o json 2>/dev/null | jq -e '.serverVersion.platform' >/dev/null 2>&1; then
+            OCP_VERSION=$(oc get clusterversion version -o jsonpath='{.status.desired.version}' 2>/dev/null || echo "unknown")
             OCP_MAJOR_MINOR=$(echo $OCP_VERSION | cut -d. -f1-2)
             echo "Detected: OpenShift $OCP_VERSION (major.minor: $OCP_MAJOR_MINOR)"
 

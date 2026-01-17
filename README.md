@@ -4,6 +4,7 @@ Model Context Protocol (MCP) server for OpenShift cluster health monitoring and 
 
 ![CI Status](https://github.com/openshift-aiops/openshift-cluster-health-mcp/workflows/CI/badge.svg)
 [![Go Report Card](https://goreportcard.com/badge/github.com/openshift-aiops/openshift-cluster-health-mcp)](https://goreportcard.com/report/github.com/openshift-aiops/openshift-cluster-health-mcp)
+![Branch Protection](https://img.shields.io/badge/branch-protected-green)
 
 ## Features
 
@@ -511,11 +512,26 @@ oc logs <pod-name> | grep -i cache
 
 ## Contributing
 
+We welcome contributions! Please see our [Contributing Guide](.github/CONTRIBUTING.md) for detailed information on:
+
+- Development setup and prerequisites
+- Branch strategy and protection rules
+- Pull request process and requirements
+- Code review requirements
+- Testing guidelines
+- Commit message format
+
+### Quick Contribution Steps
+
 1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+2. Create a feature branch from `main` (`git checkout -b feature/amazing-feature`)
+3. Make your changes following our [code style guidelines](.github/CONTRIBUTING.md#code-style-guidelines)
+4. Run tests and linters locally (`make test && make lint`)
+5. Commit your changes using [Conventional Commits](.github/CONTRIBUTING.md#commit-message-format)
+6. Push to the branch (`git push origin feature/amazing-feature`)
+7. Open a Pull Request using our [PR template](.github/PULL_REQUEST_TEMPLATE.md)
+
+**Branch Protection**: All main and release branches are protected. See [Branch Protection Rules](docs/BRANCH_PROTECTION.md) for details.
 
 ## License
 

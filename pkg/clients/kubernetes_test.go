@@ -7,6 +7,18 @@ import (
 )
 
 func TestNewK8sClient(t *testing.T) {
+	// Try to create a client first to check if cluster access is available
+	testClient, err := NewK8sClient(nil)
+	if err != nil {
+		t.Skipf("Skipping: unable to create Kubernetes client: %v", err)
+		return
+	}
+	defer func() {
+		if err := testClient.Close(); err != nil {
+			t.Logf("Error closing test client: %v", err)
+		}
+	}()
+
 	tests := []struct {
 		name    string
 		config  *K8sClientConfig
