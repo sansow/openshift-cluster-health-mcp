@@ -130,6 +130,14 @@ helm install mcp-server ./charts/openshift-cluster-health-mcp \
 
 **📖 For detailed installation instructions, version-specific configurations, and troubleshooting, see the [Installation Guide](./docs/INSTALLATION.md).**
 
+**Option 3: Manual Deployment via GitHub Actions**
+
+For pre-release validation or testing against real OpenShift clusters, use the manual deployment workflow:
+- Navigate to [Actions → OpenShift Deploy](https://github.com/tosin2013/openshift-cluster-health-mcp/actions/workflows/openshift-deploy.yml)
+- Provide your OpenShift server URL and authentication token
+- Optionally deploy to your cluster after testing
+- See [Manual OpenShift Deployment Guide](./docs/OPENSHIFT_MANUAL_DEPLOYMENT.md) for detailed instructions
+
 ## Configuration
 
 ### Environment Variables

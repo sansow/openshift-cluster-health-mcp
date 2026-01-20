@@ -336,7 +336,7 @@ See `docs/adrs/` for all architectural decisions.
 
 ## Branch Protection
 
-All main and release branches are protected to ensure code quality and prevent unauthorized changes. See [`docs/BRANCH_PROTECTION.md`](docs/BRANCH_PROTECTION.md) for complete details.
+All main and release branches are protected to ensure code quality and prevent unauthorized changes. See [`docs/BRANCH_PROTECTION.md`](docs/BRANCH_PROTECTION.md) for complete details and [`docs/adrs/014-branch-protection-strategy.md`](docs/adrs/014-branch-protection-strategy.md) for architectural decisions.
 
 ### Protected Branches
 - **`main`** - Primary development branch (1 required approval)

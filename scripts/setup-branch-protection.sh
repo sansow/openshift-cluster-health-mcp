@@ -67,6 +67,14 @@ check_prerequisites() {
   fi
   print_success "GitHub CLI installed"
 
+  # Check if jq is installed
+  if ! command -v jq &> /dev/null; then
+    print_error "jq is not installed"
+    echo "Install it from: https://jqlang.github.io/jq/"
+    exit 1
+  fi
+  print_success "jq installed"
+
   # Check if authenticated
   if ! gh auth status &> /dev/null; then
     print_error "Not authenticated with GitHub CLI"
@@ -173,6 +181,8 @@ main() {
   echo "  - release-4.18 (2 required approvals)"
   echo "  - release-4.19 (2 required approvals)"
   echo "  - release-4.20 (2 required approvals)"
+  echo
+  print_info "Note: release-4.17 deleted on 2026-01-17 (OpenShift 4.17 EOL)"
   echo
   echo "Required status checks (${#REQUIRED_CHECKS[@]} total):"
   for check in "${REQUIRED_CHECKS[@]}"; do

@@ -6,6 +6,8 @@ This document describes the branch protection rules configured for the OpenShift
 
 Branch protection ensures that all changes to critical branches go through a rigorous review and validation process. This prevents accidental or unauthorized changes and maintains the integrity of the codebase.
 
+This implementation follows **[ADR-014: Branch Protection Strategy](adrs/014-branch-protection-strategy.md)**, which documents the architectural decisions and rationale for our tiered protection model.
+
 ## Protected Branches
 
 ### Main Branch (`main`)
@@ -48,6 +50,14 @@ The following release branches are protected with stricter requirements:
 
 **Status Checks Required:**
 Same as main branch (Test, Lint, Build, Security, Helm, build-and-push)
+
+### End of Life (EOL) Branches
+
+The following release branches have been deleted as their corresponding OpenShift versions reached end of life:
+
+- **`release-4.17`** - Deleted 2026-01-17 (OpenShift 4.17 EOL)
+
+See [ADR-014: Branch Protection Strategy](adrs/014-branch-protection-strategy.md) for branch lifecycle management process.
 
 ## Required Status Checks Explained
 
@@ -382,6 +392,7 @@ Track these metrics to ensure branch protection is working effectively:
 
 ## Related Documentation
 
+- **[ADR-014: Branch Protection Strategy](adrs/014-branch-protection-strategy.md)** - Architectural decision and rationale
 - [CONTRIBUTING.md](../.github/CONTRIBUTING.md) - Contribution guidelines
 - [CODEOWNERS](../.github/CODEOWNERS) - Code ownership definitions
 - [GitHub Actions Workflows](../.github/workflows/) - CI/CD configuration

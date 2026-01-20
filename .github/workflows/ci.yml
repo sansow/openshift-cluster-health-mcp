@@ -18,9 +18,6 @@ jobs:
   test:
     name: Test
     runs-on: ubuntu-latest
-    env:
-      OPENSHIFT_SERVER: ${{ secrets.OPENSHIFT_SERVER }}
-      OPENSHIFT_TOKEN: ${{ secrets.OPENSHIFT_TOKEN }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
@@ -34,110 +31,40 @@ jobs:
       - name: Download dependencies
         run: go mod download
 
-      - name: Set up OpenShift kubeconfig using oc login
-        if: env.OPENSHIFT_SERVER != '' && env.OPENSHIFT_TOKEN != ''
+      - name: Determine Kubernetes version for branch
+        id: k8s-version
         run: |
-          echo "Installing oc CLI..."
-          curl -LO https://mirror.openshift.com/pub/openshift-v4/clients/ocp/stable/openshift-client-linux.tar.gz
-          tar -xzf openshift-client-linux.tar.gz
-          sudo mv oc /usr/local/bin/
-          rm -f kubectl README.md openshift-client-linux.tar.gz
-
-          echo "Logging into OpenShift cluster..."
-          oc login --token=${{ env.OPENSHIFT_TOKEN }} --server=${{ env.OPENSHIFT_SERVER }} --insecure-skip-tls-verify=true
-
-          echo "KUBECONFIG=$HOME/.kube/config" >> $GITHUB_ENV
-          echo "✓ Logged into OpenShift cluster as $(oc whoami)"
-
-      - name: Verify OpenShift connectivity and version
-        if: env.OPENSHIFT_SERVER != '' && env.OPENSHIFT_TOKEN != ''
-        run: |
-          # Verify we can list nodes (test authentication)
-          echo "Verifying cluster access..."
-          if ! oc get nodes >/dev/null 2>&1; then
-            echo "❌ ERROR: Cannot list nodes - authentication may have failed"
-            exit 1
-          fi
-
-          echo "✓ Cluster is accessible - $(oc get nodes --no-headers | wc -l) nodes found"
-
-          # Determine expected OpenShift version from branch
-          BRANCH_NAME="${{ github.ref_name }}"
+          # For PRs, use base_ref (target branch). For pushes, use ref_name (source branch)
+          BRANCH_NAME="${{ github.base_ref || github.ref_name }}"
           case $BRANCH_NAME in
             main|release-4.18)
-              EXPECTED_OCP_VERSION="4.18"
-              EXPECTED_K8S_VERSION="1.31"
+              K8S_VERSION="v1.31.0"
               ;;
             release-4.19)
-              EXPECTED_OCP_VERSION="4.19"
-              EXPECTED_K8S_VERSION="1.32"
+              K8S_VERSION="v1.32.0"
               ;;
             release-4.20)
-              EXPECTED_OCP_VERSION="4.20"
-              EXPECTED_K8S_VERSION="1.33"
+              K8S_VERSION="v1.33.0"
               ;;
             *)
-              echo "ℹ️  Unknown branch, skipping version check"
-              exit 0
+              # Default to 1.31 for feature branches
+              K8S_VERSION="v1.31.0"
               ;;
           esac
+          echo "k8s_version=$K8S_VERSION" >> $GITHUB_OUTPUT
+          echo "Using Kubernetes version: $K8S_VERSION for branch: $BRANCH_NAME"
 
-          # Get actual cluster versions
-          echo ""
-          echo "=== Version Compatibility Check ==="
-          echo "Branch: $BRANCH_NAME"
-          echo "Expected: OpenShift $EXPECTED_OCP_VERSION (Kubernetes $EXPECTED_K8S_VERSION)"
-
-          # Get Kubernetes version
-          K8S_FULL_VERSION=$(oc version -o json 2>/dev/null | jq -r '.serverVersion.gitVersion' | sed 's/v//')
-          K8S_MAJOR_MINOR=$(echo $K8S_FULL_VERSION | cut -d. -f1-2)
-          echo "Detected: Kubernetes $K8S_FULL_VERSION (major.minor: $K8S_MAJOR_MINOR)"
-
-          # Try to get OpenShift version (if available)
-          if oc version -o json 2>/dev/null | jq -e '.serverVersion.platform' >/dev/null 2>&1; then
-            OCP_VERSION=$(oc get clusterversion version -o jsonpath='{.status.desired.version}' 2>/dev/null || echo "unknown")
-            OCP_MAJOR_MINOR=$(echo $OCP_VERSION | cut -d. -f1-2)
-            echo "Detected: OpenShift $OCP_VERSION (major.minor: $OCP_MAJOR_MINOR)"
-
-            # Compare OpenShift major.minor
-            if [ "$OCP_MAJOR_MINOR" != "$EXPECTED_OCP_VERSION" ]; then
-              echo ""
-              echo "⚠️  WARNING: OpenShift version mismatch!"
-              echo "   Branch targets: OpenShift $EXPECTED_OCP_VERSION"
-              echo "   Cluster running: OpenShift $OCP_MAJOR_MINOR"
-              echo "   Tests will continue but may encounter compatibility issues"
-            else
-              echo ""
-              echo "✓ OpenShift version matches branch target ($EXPECTED_OCP_VERSION)"
-            fi
-          else
-            # Fallback to Kubernetes version check
-            if [ "$K8S_MAJOR_MINOR" != "$EXPECTED_K8S_VERSION" ]; then
-              echo ""
-              echo "⚠️  WARNING: Kubernetes version mismatch!"
-              echo "   Branch targets: Kubernetes $EXPECTED_K8S_VERSION (OpenShift $EXPECTED_OCP_VERSION)"
-              echo "   Cluster running: Kubernetes $K8S_MAJOR_MINOR"
-              echo "   Tests will continue but may encounter compatibility issues"
-            else
-              echo ""
-              echo "✓ Kubernetes version matches branch target ($EXPECTED_K8S_VERSION)"
-            fi
-          fi
-          echo "==================================="
-          echo ""
+      - name: Set up Kind cluster
+        uses: helm/kind-action@v1
+        with:
+          cluster_name: test-cluster
+          version: v0.26.0
+          node_image: kindest/node:${{ steps.k8s-version.outputs.k8s_version }}
+          wait: 60s
+          kubectl_version: ${{ steps.k8s-version.outputs.k8s_version }}
 
       - name: Run tests
-        run: |
-          if [ -f "$HOME/.kube/config" ]; then
-            echo "Running tests WITH OpenShift cluster access..."
-            go test -v -race -coverprofile=coverage.out ./...
-          else
-            echo "Running tests WITHOUT cluster access (unit tests only)..."
-            echo "Note: Integration tests requiring cluster access will be skipped"
-            go test -v -race -coverprofile=coverage.out ./...
-          fi
-        env:
-          KUBECONFIG: ${{ env.KUBECONFIG || '' }}
+        run: go test -v -race -coverprofile=coverage.out ./...
 
       - name: Upload coverage
         uses: codecov/codecov-action@v5

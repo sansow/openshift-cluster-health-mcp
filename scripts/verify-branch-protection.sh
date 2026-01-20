@@ -52,11 +52,17 @@ print_error() {
   echo -e "${RED}✗ ${1}${NC}"
 }
 
-# Function to check if gh CLI is available
+# Function to check if gh CLI and jq are available
 check_gh_cli() {
   if ! command -v gh &> /dev/null; then
     print_error "GitHub CLI (gh) is not installed"
     echo "Install it from: https://cli.github.com/"
+    exit 1
+  fi
+
+  if ! command -v jq &> /dev/null; then
+    print_error "jq is not installed"
+    echo "Install it from: https://jqlang.github.io/jq/"
     exit 1
   fi
 
@@ -225,6 +231,9 @@ main() {
 
   # Check prerequisites
   check_gh_cli
+  echo
+
+  print_info "Note: release-4.17 deleted on 2026-01-17 (OpenShift 4.17 EOL)"
   echo
 
   local total_issues=0
