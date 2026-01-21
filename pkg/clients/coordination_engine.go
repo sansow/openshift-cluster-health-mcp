@@ -88,32 +88,27 @@ type CreateIncidentResponse struct {
 
 // TriggerRemediationRequest represents a request to trigger remediation
 type TriggerRemediationRequest struct {
-	IncidentID string                 `json:"incidentId"`
-	Action     string                 `json:"action"` // scale_deployment, restart_pod, clear_alerts, etc.
-	Parameters map[string]interface{} `json:"parameters,omitempty"`
-	Priority   *int                   `json:"priority,omitempty"`   // 1-10
-	Confidence *float64               `json:"confidence,omitempty"` // 0.0-1.0
-	DryRun     *bool                  `json:"dryRun,omitempty"`
+	IncidentID string `json:"incident_id"`
+	Namespace  string `json:"namespace"`
+	Resource   struct {
+		Kind string `json:"kind"`
+		Name string `json:"name"`
+	} `json:"resource"`
+	Issue struct {
+		Type        string `json:"type"`
+		Description string `json:"description"`
+		Severity    string `json:"severity"`
+	} `json:"issue"`
+	DryRun bool `json:"dry_run,omitempty"`
 }
 
 // TriggerRemediationResponse represents the response from triggering remediation
 type TriggerRemediationResponse struct {
-	ActionID          string                 `json:"action_id"`
-	IncidentID        string                 `json:"incident_id"`
-	Type              string                 `json:"type"`
-	MappedType        string                 `json:"mapped_type"`
-	Description       string                 `json:"description"`
-	Status            string                 `json:"status"`
-	Priority          int                    `json:"priority"`
-	Confidence        float64                `json:"confidence"`
-	Parameters        map[string]interface{} `json:"parameters"`
-	Target            string                 `json:"target"`
-	Source            string                 `json:"source"`
-	ExecutedAt        string                 `json:"executedAt"`
-	EstimatedDuration string                 `json:"estimatedDuration"`
-	Result            string                 `json:"result"`
+	WorkflowID        string `json:"workflow_id"`
+	Status            string `json:"status"`
+	DeploymentMethod  string `json:"deployment_method"`
+	EstimatedDuration string `json:"estimated_duration"`
 }
-
 // AnalyzeAnomaliesRequest represents a request to analyze anomalies
 type AnalyzeAnomaliesRequest struct {
 	TimeRange          string        `json:"timeRange,omitempty"`     // e.g., "1h", "24h"

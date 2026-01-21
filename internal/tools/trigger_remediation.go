@@ -27,7 +27,7 @@ func (t *TriggerRemediationTool) Name() string {
 
 // Description returns the tool description
 func (t *TriggerRemediationTool) Description() string {
-	return "Trigger automated remediation actions for incidents through the Coordination Engine. Supports actions like scale_deployment, restart_pod, clear_alerts, and more. Can be run in dry-run mode for safety."
+	return "Trigger automated remediation actions for incidents through the Coordination Engine. Requires incident_id, namespace, resource details, and issue information."
 }
 
 // InputSchema returns the JSON schema for tool inputs
@@ -39,134 +39,108 @@ func (t *TriggerRemediationTool) InputSchema() map[string]interface{} {
 				"type":        "string",
 				"description": "The ID of the incident to remediate",
 			},
-			"action": map[string]interface{}{
+			"namespace": map[string]interface{}{
 				"type":        "string",
-				"description": "The remediation action to trigger",
-				"enum": []string{
-					"scale_deployment",
-					"restart_pod",
-					"clear_alerts",
-					"run_inference",
-					"scale_up",
-					"scale_down",
-					"remediate_node",
-					"correlate_alerts",
-				},
+				"description": "Kubernetes namespace",
 			},
-			"parameters": map[string]interface{}{
-				"type":        "object",
-				"description": "Action-specific parameters",
-				"properties": map[string]interface{}{
-					"target_replicas": map[string]interface{}{
-						"type":        "integer",
-						"description": "Target number of replicas (for scaling actions)",
-					},
-					"deployment_name": map[string]interface{}{
-						"type":        "string",
-						"description": "Name of deployment to scale",
-					},
-					"pod_name": map[string]interface{}{
-						"type":        "string",
-						"description": "Name of pod to restart",
-					},
-					"namespace": map[string]interface{}{
-						"type":        "string",
-						"description": "Kubernetes namespace",
-					},
-					"grace_period": map[string]interface{}{
-						"type":        "integer",
-						"description": "Grace period in seconds for pod termination",
-						"default":     30,
-					},
-					"restart_strategy": map[string]interface{}{
-						"type":        "string",
-						"description": "Restart strategy (rolling, immediate)",
-						"enum":        []string{"rolling", "immediate"},
-						"default":     "rolling",
-					},
-				},
+			"resource_name": map[string]interface{}{
+				"type":        "string",
+				"description": "Name of the resource (deployment, pod, etc.)",
 			},
-			"priority": map[string]interface{}{
-				"type":        "integer",
-				"description": "Action priority (1-10, higher is more urgent)",
-				"default":     8,
-				"minimum":     1,
-				"maximum":     10,
+			"resource_kind": map[string]interface{}{
+				"type":        "string",
+				"description": "Kind of resource (Deployment, Pod, StatefulSet)",
+				"enum":        []string{"Deployment", "Pod", "StatefulSet", "DaemonSet"},
 			},
-			"confidence": map[string]interface{}{
-				"type":        "number",
-				"description": "Confidence score for this action (0.0-1.0)",
-				"default":     0.9,
-				"minimum":     0.0,
-				"maximum":     1.0,
+			"issue_type": map[string]interface{}{
+				"type":        "string",
+				"description": "Type of issue",
+				"enum":        []string{"pod_crash", "oom_kill", "high_cpu", "high_memory", "network_issue"},
+			},
+			"severity": map[string]interface{}{
+				"type":        "string",
+				"description": "Issue severity",
+				"enum":        []string{"low", "medium", "high", "critical"},
+			},
+			"description": map[string]interface{}{
+				"type":        "string",
+				"description": "Description of the issue",
 			},
 			"dry_run": map[string]interface{}{
 				"type":        "boolean",
-				"description": "If true, validate action without executing it",
+				"description": "If true, validate without executing",
 				"default":     false,
 			},
 		},
-		"required": []string{"incident_id", "action"},
+		"required": []string{"incident_id", "namespace", "resource_name", "resource_kind", "issue_type", "severity"},
 	}
 }
 
 // TriggerRemediationInput represents the input parameters
 type TriggerRemediationInput struct {
-	IncidentID string                 `json:"incident_id"`
-	Action     string                 `json:"action"`
-	Parameters map[string]interface{} `json:"parameters"`
-	Priority   int                    `json:"priority"`
-	Confidence float64                `json:"confidence"`
-	DryRun     bool                   `json:"dry_run"`
+	IncidentID   string `json:"incident_id"`
+	Namespace    string `json:"namespace"`
+	ResourceName string `json:"resource_name"`
+	ResourceKind string `json:"resource_kind"`
+	IssueType    string `json:"issue_type"`
+	Severity     string `json:"severity"`
+	Description  string `json:"description"`
+	DryRun       bool   `json:"dry_run"`
 }
 
 // TriggerRemediationOutput represents the tool output
 type TriggerRemediationOutput struct {
-	Status            string                 `json:"status"`
-	ActionID          string                 `json:"action_id"`
-	IncidentID        string                 `json:"incident_id"`
-	Action            string                 `json:"action"`
-	Description       string                 `json:"description"`
-	Priority          int                    `json:"priority"`
-	Confidence        float64                `json:"confidence"`
-	Parameters        map[string]interface{} `json:"parameters"`
-	ExecutedAt        string                 `json:"executed_at"`
-	EstimatedDuration string                 `json:"estimated_duration"`
-	Message           string                 `json:"message"`
-	DryRun            bool                   `json:"dry_run,omitempty"`
+	Status            string `json:"status"`
+	WorkflowID        string `json:"workflow_id"`
+	IncidentID        string `json:"incident_id"`
+	DeploymentMethod  string `json:"deployment_method"`
+	EstimatedDuration string `json:"estimated_duration"`
+	Message           string `json:"message"`
+	DryRun            bool   `json:"dry_run,omitempty"`
 }
 
 // Execute runs the trigger-remediation tool
 func (t *TriggerRemediationTool) Execute(ctx context.Context, args map[string]interface{}) (interface{}, error) {
 	// Parse input arguments
 	input := TriggerRemediationInput{
-		Priority:   8,
-		Confidence: 0.9,
-		DryRun:     false,
-		Parameters: make(map[string]interface{}),
+		DryRun: false,
 	}
 
 	if argsJSON, err := json.Marshal(args); err == nil {
-		_ = json.Unmarshal(argsJSON, &input) //nolint:errcheck // Intentionally ignore error, use defaults if unmarshal fails
+		_ = json.Unmarshal(argsJSON, &input)
 	}
 
 	// Validate required fields
 	if input.IncidentID == "" {
 		return nil, fmt.Errorf("incident_id is required")
 	}
-	if input.Action == "" {
-		return nil, fmt.Errorf("action is required")
+	if input.Namespace == "" {
+		return nil, fmt.Errorf("namespace is required")
+	}
+	if input.ResourceName == "" {
+		return nil, fmt.Errorf("resource_name is required")
+	}
+	if input.ResourceKind == "" {
+		return nil, fmt.Errorf("resource_kind is required")
+	}
+	if input.IssueType == "" {
+		return nil, fmt.Errorf("issue_type is required")
+	}
+	if input.Severity == "" {
+		return nil, fmt.Errorf("severity is required")
 	}
 
 	// Build remediation request
 	req := &clients.TriggerRemediationRequest{
 		IncidentID: input.IncidentID,
-		Action:     input.Action,
-		Parameters: input.Parameters,
-		Priority:   &input.Priority,
-		Confidence: &input.Confidence,
-		DryRun:     &input.DryRun,
+		Namespace:  input.Namespace,
+		DryRun:     input.DryRun,
 	}
+	req.Resource.Kind = input.ResourceKind
+	req.Resource.Name = input.ResourceName
+	req.Issue.Type = input.IssueType
+	req.Issue.Severity = input.Severity
+	req.Issue.Description = input.Description
 
 	// Call Coordination Engine API
 	resp, err := t.ceClient.TriggerRemediation(ctx, req)
@@ -176,24 +150,18 @@ func (t *TriggerRemediationTool) Execute(ctx context.Context, args map[string]in
 
 	// Build output
 	output := TriggerRemediationOutput{
-		Status:            "success",
-		ActionID:          resp.ActionID,
-		IncidentID:        resp.IncidentID,
-		Action:            resp.Type,
-		Description:       resp.Description,
-		Priority:          resp.Priority,
-		Confidence:        resp.Confidence,
-		Parameters:        resp.Parameters,
-		ExecutedAt:        resp.ExecutedAt,
+		Status:            resp.Status,
+		WorkflowID:        resp.WorkflowID,
+		IncidentID:        input.IncidentID,
+		DeploymentMethod:  resp.DeploymentMethod,
 		EstimatedDuration: resp.EstimatedDuration,
-		Message:           resp.Result,
 		DryRun:            input.DryRun,
 	}
 
 	if input.DryRun {
-		output.Message = fmt.Sprintf("DRY RUN: Remediation action '%s' validated successfully (not executed)", input.Action)
+		output.Message = fmt.Sprintf("DRY RUN: Remediation for %s/%s validated successfully", input.ResourceKind, input.ResourceName)
 	} else {
-		output.Message = fmt.Sprintf("Remediation action '%s' triggered successfully (ID: %s)", input.Action, resp.ActionID)
+		output.Message = fmt.Sprintf("Remediation triggered successfully (workflow: %s)", resp.WorkflowID)
 	}
 
 	return output, nil
