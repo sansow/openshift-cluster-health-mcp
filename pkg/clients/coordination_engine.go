@@ -155,7 +155,7 @@ type AnalyzeAnomaliesResponse struct {
 	AnomaliesDetected int              `json:"anomalies_detected"`
 	TimeRange         string           `json:"time_range"`
 	Threshold         float64          `json:"threshold"`
-	Patterns          []AnomalyPattern `json:"patterns"`
+	Patterns          []AnomalyPattern `json:"anomalies"`
 	Recommendations   []string         `json:"recommendations"`
 	Alerts            []Alert          `json:"alerts"`
 	Summary           struct {

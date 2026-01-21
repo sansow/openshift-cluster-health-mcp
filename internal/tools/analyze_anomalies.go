@@ -1,6 +1,8 @@
 package tools
 
 import (
+	"os"
+	"strconv"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -94,7 +96,7 @@ func (t *AnalyzeAnomaliesTool) InputSchema() map[string]interface{} {
 			"threshold": map[string]interface{}{
 				"type":        "number",
 				"description": "Anomaly score threshold (0.0-1.0). Values above this are reported.",
-				"default":     0.7,
+				"default":     0.3,
 				"minimum":     0.0,
 				"maximum":     1.0,
 			},
@@ -155,7 +157,7 @@ func (t *AnalyzeAnomaliesTool) Execute(ctx context.Context, args map[string]inte
 	// Parse input arguments with defaults
 	input := AnalyzeAnomaliesInput{
 		TimeRange: "1h",
-		Threshold: 0.7,
+		Threshold: getDefaultThreshold(),
 		ModelName: "anomaly-detector",
 	}
 
@@ -270,6 +272,14 @@ func (t *AnalyzeAnomaliesTool) Execute(ctx context.Context, args map[string]inte
 	}
 
 	return output, nil
+}
+func getDefaultThreshold() float64 {
+    if val := os.Getenv("ANOMALY_THRESHOLD"); val != "" {
+        if f, err := strconv.ParseFloat(val, 64); err == nil {
+            return f
+        }
+    }
+    return 0.3 // New default
 }
 
 // validateFilters validates the mutual exclusivity and combination rules for filters
