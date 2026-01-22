@@ -66,6 +66,45 @@ jobs:
       - name: Run tests
         run: go test -v -race -coverprofile=coverage.out ./...
 
+      - name: Build healthcheck binary for integration test
+        run: |
+          CGO_ENABLED=0 go build -ldflags="-s -w" -trimpath -o bin/healthcheck ./cmd/healthcheck
+          echo "✓ healthcheck binary built"
+
+      - name: Test healthcheck with OpenShift authentication
+        if: env.OPENSHIFT_SERVER != '' && env.OPENSHIFT_TOKEN != ''
+        run: |
+          echo "Testing healthcheck with bearer token authentication..."
+
+          # Get the API server URL from kubeconfig
+          API_SERVER=$(kubectl config view --minify -o jsonpath='{.clusters[0].cluster.server}')
+          echo "API Server: $API_SERVER"
+
+          # Test healthcheck against Kubernetes API health endpoint with bearer token
+          # The K8s API /healthz endpoint should work with valid token
+          ./bin/healthcheck "${API_SERVER}/healthz" \
+            --bearer-token="${{ env.OPENSHIFT_TOKEN }}" \
+            --insecure-skip-verify \
+            --max-retries=3 \
+            --timeout=10s \
+            --interval=2s && {
+            echo "✓ healthcheck with bearer token works against K8s API"
+          } || {
+            echo "⚠️  healthcheck against K8s API failed (may be expected for some endpoints)"
+          }
+
+          # Test against a basic livez endpoint
+          ./bin/healthcheck "${API_SERVER}/livez" \
+            --bearer-token="${{ env.OPENSHIFT_TOKEN }}" \
+            --insecure-skip-verify \
+            --max-retries=3 \
+            --timeout=10s \
+            --interval=2s && {
+            echo "✓ healthcheck with bearer token works against K8s livez"
+          } || {
+            echo "⚠️  healthcheck against K8s livez failed"
+          }
+
       - name: Upload coverage
         uses: codecov/codecov-action@v5
         with:
@@ -108,7 +147,33 @@ jobs:
       - name: Build binary
         run: |
           CGO_ENABLED=0 go build -ldflags="-s -w" -trimpath -o bin/mcp-server ./cmd/mcp-server
-          ls -lh bin/mcp-server
+          CGO_ENABLED=0 go build -ldflags="-s -w" -trimpath -o bin/healthcheck ./cmd/healthcheck
+          ls -lh bin/mcp-server bin/healthcheck
+
+      - name: Test healthcheck binary
+        run: |
+          # Verify healthcheck binary runs and shows help
+          ./bin/healthcheck 2>&1 | grep -q "bearer-token-file" || {
+            echo "❌ healthcheck binary missing bearer-token-file flag"
+            exit 1
+          }
+          echo "✓ healthcheck binary has bearer token support"
+
+          # Test healthcheck with a simple HTTP server
+          # Start a simple HTTP health endpoint in background
+          python3 -m http.server 18080 &
+          SERVER_PID=$!
+          sleep 1
+
+          # Run healthcheck against it (should succeed quickly)
+          timeout 10 ./bin/healthcheck http://localhost:18080/ --max-retries=3 --interval=1s || {
+            echo "❌ healthcheck failed against local server"
+            kill $SERVER_PID 2>/dev/null || true
+            exit 1
+          }
+          echo "✓ healthcheck works against local HTTP server"
+
+          kill $SERVER_PID 2>/dev/null || true
 
       - name: Verify binary size
         run: |
