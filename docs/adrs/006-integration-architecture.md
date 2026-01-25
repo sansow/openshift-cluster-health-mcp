@@ -377,6 +377,8 @@ func (t *ClusterHealthTool) getMetrics(ctx context.Context) (*Metrics, error) {
 
 **Endpoint**: `http://coordination-engine:8080/api/v1/`
 
+**API Version**: v2 (as of 2026-01-21, see API Evolution below)
+
 **Implementation**:
 ```go
 // pkg/clients/coordination_engine.go
@@ -396,10 +398,34 @@ func NewCoordEngineClient(config CoordEngineConfig) *CoordEngineClient {
     }
 }
 
+// TriggerRemediationRequest represents a structured remediation request (API v2)
+type TriggerRemediationRequest struct {
+    IncidentID string `json:"incident_id"`
+    Namespace  string `json:"namespace"`
+    Resource   struct {
+        Kind string `json:"kind"` // Deployment, Pod, StatefulSet
+        Name string `json:"name"`
+    } `json:"resource"`
+    Issue struct {
+        Type        string `json:"type"`        // pod_crash, oom_kill, high_cpu, etc.
+        Description string `json:"description"`
+        Severity    string `json:"severity"`    // low, medium, high, critical
+    } `json:"issue"`
+    DryRun bool `json:"dry_run,omitempty"`
+}
+
+// TriggerRemediationResponse represents the workflow response (API v2)
+type TriggerRemediationResponse struct {
+    WorkflowID        string `json:"workflow_id"`
+    Status            string `json:"status"`
+    DeploymentMethod  string `json:"deployment_method"` // argocd, helm, manual
+    EstimatedDuration string `json:"estimated_duration"`
+}
+
 func (c *CoordEngineClient) TriggerRemediation(
     ctx context.Context,
-    req *RemediationRequest,
-) (*WorkflowResponse, error) {
+    req *TriggerRemediationRequest,
+) (*TriggerRemediationResponse, error) {
     if !c.enabled {
         return nil, ErrServiceDisabled
     }
@@ -416,12 +442,65 @@ func (c *CoordEngineClient) TriggerRemediation(
     }
     defer resp.Body.Close()
 
-    var response WorkflowResponse
+    // Accept both 200 OK and 202 Accepted (async workflow initiation)
+    if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusAccepted {
+        return nil, fmt.Errorf("unexpected status: %d", resp.StatusCode)
+    }
+
+    var response TriggerRemediationResponse
     if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
         return nil, err
     }
 
     return &response, nil
+}
+```
+
+#### API Evolution History
+
+**v1 (Deprecated - 2025-12-09 to 2026-01-20)**
+- Used generic `action` and `parameters` fields
+- Returned `ActionID` and detailed execution parameters
+- Required `priority` and `confidence` scoring
+
+**v2 (Current - 2026-01-21+)**
+- Structured `resource` and `issue` objects for clarity
+- Returns `WorkflowID` for async tracking
+- Deployment method detection integrated (per ADR-011)
+- Accepts HTTP 202 Accepted for async workflows
+- Removed deprecated fields: `action`, `parameters`, `priority`, `confidence`
+
+**Migration Notes**:
+- Old `action` field replaced by `resource.kind` + `issue.type`
+- Old `parameters.namespace` moved to top-level `namespace`
+- Old `ActionID` replaced by `WorkflowID`
+- Response now includes `deployment_method` (argocd/helm/manual)
+
+**Example Request (v2)**:
+```json
+{
+  "incident_id": "INC-12345",
+  "namespace": "production",
+  "resource": {
+    "kind": "Deployment",
+    "name": "payment-service"
+  },
+  "issue": {
+    "type": "pod_crash",
+    "description": "CrashLoopBackOff due to OOM",
+    "severity": "high"
+  },
+  "dry_run": false
+}
+```
+
+**Example Response (v2)**:
+```json
+{
+  "workflow_id": "WF-789",
+  "status": "initiated",
+  "deployment_method": "argocd",
+  "estimated_duration": "2m30s"
 }
 ```
 
@@ -558,6 +637,34 @@ func (t *AnomalyTool) Execute(ctx context.Context, params map[string]interface{}
     return t.ruleBasedAnomaly Detection(ctx, params), nil
 }
 ```
+
+#### Anomaly Detection Configuration
+
+**Default Threshold Evolution**:
+- **v1 (2025-12-09 to 2026-01-20)**: Default threshold `0.7` (conservative, fewer false positives)
+- **v2 (2026-01-21+)**: Default threshold `0.3` (more sensitive, better anomaly detection)
+
+**Rationale for Change**:
+The threshold reduction from 0.7 to 0.3 was made based on Coordination Engine integration feedback. The higher threshold (0.7) was too conservative and missed legitimate anomalies. The new default (0.3) provides better detection while remaining configurable via environment variable.
+
+**Configuration**:
+```yaml
+# values.yaml
+kserve:
+  enabled: true
+  namespace: self-healing-platform
+  anomalyThreshold: 0.3  # Configurable via ANOMALY_THRESHOLD env var
+```
+
+**Environment Variable**:
+```bash
+# Override default threshold at runtime
+ANOMALY_THRESHOLD=0.5  # Range: 0.0-1.0
+```
+
+**JSON Field Alignment (2026-01-21)**:
+- Fixed field mapping: `patterns` → `anomalies` to match Coordination Engine response structure
+- Old response used `"patterns": []`, new uses `"anomalies": []`
 
 ## Circuit Breaker Pattern
 
@@ -709,12 +816,15 @@ circuitBreaker:
 KUBERNETES_SERVICE_HOST=10.0.0.1
 COORDINATION_ENGINE_URL=http://coordination-engine:8080/api/v1
 KSERVE_NAMESPACE=self-healing-platform
+KSERVE_ENABLED=true
 PROMETHEUS_URL=https://prometheus-k8s.openshift-monitoring.svc:9091
+ANOMALY_THRESHOLD=0.3  # Anomaly detection threshold (0.0-1.0)
 
 # Local development
 KUBECONFIG=/Users/dev/.kube/config
 COORDINATION_ENGINE_URL=http://localhost:8080/api/v1
 KSERVE_ENABLED=false
+ANOMALY_THRESHOLD=0.5  # Optional: override default threshold
 ```
 
 ## Testing Strategy
